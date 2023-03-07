@@ -1,17 +1,17 @@
 #include <cstdio>
 
 __global__ void cuda_hello() {
-  printf("Hello World from GPU!\n");
+    printf("Hello World from GPU!\n");
 }
 
 int main() {
-  cuda_hello<<<1, 1>>>();
-  const auto status = cudaDeviceSynchronize();
+    cuda_hello<<<1, 1>>>();
+    const auto status = cudaDeviceSynchronize();
 
-  if (status != cudaSuccess) {
-    fprintf(stderr, "CUDA ERROR: %s\n", cudaGetErrorString(status));
-    return 1;
-  }
+    if (status != cudaSuccess) {
+        fprintf(stderr, "CUDA ERROR: %s\n", cudaGetErrorString(status));
+        return 1;
+    }
 
-  return 0;
+    return 0;
 }

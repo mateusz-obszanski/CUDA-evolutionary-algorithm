@@ -3,6 +3,7 @@ UseTab: Never
 IndentWidth: 4
 TabWidth: 4
 AccessModifierOffset: -4
+ConstructorInitializerIndentWidth: 0
 NamespaceIndentation: All
 ColumnLimit: 0
 BreakBeforeBraces: Attach
