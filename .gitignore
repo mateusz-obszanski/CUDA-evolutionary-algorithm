@@ -1,6 +1,26 @@
+# IDE
+.vscode
+
 *.i
 *.ii
 *.gpu
 *.ptx
 *.cubin
 *.fatbin
+
+build
+
+# Cmake
+CMakeFiles
+cmake_install.cmake
+CMakeCache.txt
+Makefile
+
+.cache
+*.log
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.ipynb
