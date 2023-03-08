@@ -8,7 +8,7 @@ namespace kernel {
     constexpr uint WARP                        = 32;
     constexpr uint FUNCTIONAL_THREADS_IN_BLOCK = 1024;
 
-    template <typename A, typename B, MappingFn<A, B> F>
+    template <typename A, typename B, concepts::MappingFn<A, B> F>
     /// @brief Dimensions:
     /// - grid: ceil(width / FUNCTIONAL_THREADS_IN_BLOCK) x 1 x 1
     /// - block: FUNCTIONAL_THREADS_IN_BLOCK x 1 x 1

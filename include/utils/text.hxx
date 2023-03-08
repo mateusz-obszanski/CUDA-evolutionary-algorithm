@@ -11,7 +11,7 @@
 #include <vector>
 
 namespace utils {
-    template <Stringifiable T, InputIter<T> InIter>
+    template <concepts::Stringifiable T, concepts::InputIter<T> InIter>
     std::string join(InIter begin, InIter end, const std::string& delim = ", ") {
         std::stringstream buff;
         std::copy(begin, end, std::ostream_iterator<T>(buff, delim.c_str()));
