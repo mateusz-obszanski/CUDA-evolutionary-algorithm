@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <vector>
 
-int main() {
+void deviceRaiiDemo() {
     try {
         std::vector<float> hArr = {9, 8, 7, 6};
 
@@ -24,11 +24,15 @@ int main() {
         utils::printVec(dArr6.toHost());
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
-        return 1;
+        exit(1);
     } catch (...) {
         std::cerr << "UNKNOWN ERROR!\n";
-        return 1;
+        exit(1);
     }
+}
+
+int main() {
+    deviceRaiiDemo();
 
     return 0;
 }
