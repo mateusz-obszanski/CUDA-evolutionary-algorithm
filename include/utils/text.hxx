@@ -12,7 +12,7 @@
 namespace utils {
     template <typename T, typename Alloc = std::pmr::polymorphic_allocator<T>>
     inline void
-    printVec(const std::vector<T, Alloc>& vec, std::ostream& out = std::cout) {
+    printVec(const std::vector<T, Alloc>& vec, std::ostream& out = std::cout, const std::string& end = "\n") {
         out << '[';
 
         std::copy(
@@ -21,7 +21,7 @@ namespace utils {
         if (vec.size() != 0)
             out << vec.back();
 
-        out << ']';
+        out << ']' << end;
     }
 
     template <typename T, typename Alloc = std::pmr::polymorphic_allocator<T>>
@@ -29,7 +29,7 @@ namespace utils {
     fmtVec(const std::vector<T, Alloc>& vec) {
         std::stringstream buff;
 
-        printVec<T>(vec, buff);
+        printVec<T>(vec, buff, "");
 
         return buff.str();
     }
