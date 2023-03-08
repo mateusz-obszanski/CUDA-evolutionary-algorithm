@@ -22,6 +22,7 @@
 - `#pragma once` instead of include guards
 - cudaMalloc/Free warpped in RAII
 - relative `#include` paths
+- in-development files should be named `playground.<extension> | *.playground.* | *.todo.*`
 
 ## Misc
 

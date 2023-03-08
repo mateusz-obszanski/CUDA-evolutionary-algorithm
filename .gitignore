@@ -25,4 +25,7 @@ __pycache__
 *.pyo
 .ipynb
 
+# Dev
 playground.*
+*.playground.*
+*.todo.*

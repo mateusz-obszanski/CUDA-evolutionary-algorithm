@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../concepts.hxx"
+#include "../cuda_types.cuh"
 #include "../types.hxx"
 
 namespace kernel {

@@ -19,18 +19,31 @@
 namespace cuda_utils {
     namespace host {
         class CudaError : public std::exception {
-            cudaError_t err;
-
-        protected:
-            std::string msg;
-
         public:
+            const cudaError_t err;
+
             CudaError(cudaError_t err)
             : err{err}, msg{std::string(cudaGetErrorName(err)) + ": " + cudaGetErrorString(err)} {}
 
             const char* what() const noexcept override {
                 return msg.c_str();
             }
+
+        protected:
+            std::string msg;
+            CudaError() = default;
         };
+
+        class CudaKernelLaunchError : public CudaError {
+        public:
+            CudaKernelLaunchError(const std::string kernelName, const cudaError_t err) : CudaError{err} {
+                this->msg = "CudaKernelLaunchError: kernel " + kernelName + ", reason: " + std::string(cudaGetErrorName(err)) + " - " + std::string(cudaGetErrorString(err));
+            }
+        };
+
+        void checkKernelLaunch(const std::string& kernelName) {
+            if (const auto status = cudaDeviceSynchronize())
+                throw CudaKernelLaunchError(kernelName, status);
+        }
     } // namespace host
 } // namespace cuda_utils

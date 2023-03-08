@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../concepts.hxx"
 #include <algorithm>
 #include <iostream>
 #include <iterator>
@@ -10,9 +11,16 @@
 #include <vector>
 
 namespace utils {
+    template <Stringifiable T, InputIter<T> InIter>
+    std::string join(InIter begin, InIter end, const std::string& delim = ", ") {
+        std::stringstream buff;
+        std::copy(begin, end, std::ostream_iterator<T>(buff, delim.c_str()));
+
+        return buff.str();
+    }
+
     template <typename T, typename Alloc = std::pmr::polymorphic_allocator<T>>
-    inline void
-    printVec(const std::vector<T, Alloc>& vec, std::ostream& out = std::cout, const std::string& end = "\n") {
+    inline void printVec(const std::vector<T, Alloc>& vec, std::ostream& out = std::cout, const std::string& end = "\n") {
         out << '[';
 
         std::copy(
