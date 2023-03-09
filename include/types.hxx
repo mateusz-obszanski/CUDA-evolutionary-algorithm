@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 
 using llong = long long;
@@ -23,3 +24,6 @@ using cullong = const unsigned long long;
 using cfloat   = const float;
 using cdouble  = const double;
 using cldouble = const long double;
+
+template <typename T>
+using PairOf = std::array<T, 2>;

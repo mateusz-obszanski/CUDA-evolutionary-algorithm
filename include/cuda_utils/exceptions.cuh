@@ -10,11 +10,13 @@
         ERR_NAME(cudaError_t status) : ::cuda_utils::host::CudaError{status} { \
             this->msg = #ERR_NAME ": " + this->msg;                            \
         }                                                                      \
-        static inline void check(cudaError_t status) {                         \
+        static inline void                                                     \
+        check(cudaError_t status) {                                            \
             if (status != cudaSuccess)                                         \
                 throw ERR_NAME(status);                                        \
         }                                                                      \
-        static inline void check() {                                           \
+        static inline void                                                     \
+        check() {                                                              \
             check(cudaGetLastError());                                         \
         }                                                                      \
     };
@@ -28,7 +30,8 @@ namespace cuda_utils {
             CudaError(cudaError_t err)
             : err{err}, msg{std::string(cudaGetErrorName(err)) + ": " + cudaGetErrorString(err)} {}
 
-            const char* what() const noexcept override {
+            const char*
+            what() const noexcept override {
                 return msg.c_str();
             }
 
@@ -43,7 +46,8 @@ namespace cuda_utils {
             }
         };
 
-        void checkKernelLaunch(const std::string& kernelName) {
+        void
+        checkKernelLaunch(const std::string& kernelName) {
             if (const auto status = cudaDeviceSynchronize())
                 throw CudaKernelLaunchError(kernelName, status);
         }

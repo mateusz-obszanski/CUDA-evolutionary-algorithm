@@ -12,7 +12,8 @@
 
 namespace utils {
     template <concepts::Stringifiable T, concepts::InputIter<T> InIter>
-    std::string join(InIter begin, InIter end, const std::string& delim = ", ") {
+    std::string
+    join(InIter begin, InIter end, const std::string& delim = ", ") {
         std::stringstream buff;
         std::copy(begin, end, std::ostream_iterator<T>(buff, delim.c_str()));
 
@@ -20,7 +21,8 @@ namespace utils {
     }
 
     template <typename T, typename Alloc = std::pmr::polymorphic_allocator<T>>
-    inline void printVec(const std::vector<T, Alloc>& vec, const std::string& end = "\n", std::ostream& out = std::cout) {
+    inline void
+    printVec(const std::vector<T, Alloc>& vec, const std::string& end = "\n", std::ostream& out = std::cout) {
         out << '[';
 
         std::copy(

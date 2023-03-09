@@ -28,3 +28,8 @@
 
 - if unsure, use `std::size_t` as indexing type
 - invoke `cmake --build .` inside `build` directory
+- format all files in project:
+
+```bash
+find . -iname '*.cxx' -o -iname '*.hxx' -o -iname '*.cu' -o -iname '*.cuh' | xargs clang-format -i
+```

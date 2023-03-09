@@ -9,7 +9,8 @@ namespace kernel {
     /// @brief Dimensions:
     /// - grid: ceil(width / FUNCTIONAL_THREADS_IN_BLOCK) x 1 x 1
     /// - block: FUNCTIONAL_THREADS_IN_BLOCK x 1 x 1
-    __global__ void map(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f) {
+    __global__ void
+    map(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f) {
         const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
 
         if (idx >= len)

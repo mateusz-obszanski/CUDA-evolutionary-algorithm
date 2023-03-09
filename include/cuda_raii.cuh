@@ -45,7 +45,8 @@ namespace raii {
     };
 
     template <typename T>
-    inline DeviceAllocator<T>::pointer DeviceAllocator<T>::allocate(size_type n) {
+    inline DeviceAllocator<T>::pointer
+    DeviceAllocator<T>::allocate(size_type n) {
         const auto maxElemN = std::numeric_limits<size_type>::max() / sizeof(T);
 
         if (n > maxElemN)
@@ -62,13 +63,15 @@ namespace raii {
     DEFINE_CUDA_ERROR(DeviceFreeError, "Could not free device memory")
 
     template <typename T>
-    inline void DeviceAllocator<T>::deallocate(pointer p, size_type) {
+    inline void
+    DeviceAllocator<T>::deallocate(pointer p, size_type) {
         const auto status = cudaFree(p);
         DeviceFreeError::check(status);
     }
 
     template <typename T>
-    inline void DeviceAllocator<T>::deallocate(pointer p) {
+    inline void
+    DeviceAllocator<T>::deallocate(pointer p) {
         deallocate(p, 0);
     }
 
@@ -145,7 +148,11 @@ namespace raii {
         return mSize * sizeof(T);
     }
 
-    template <std::default_initializable T>
+    // helper concept
+    template <typename T>
+    concept DeviceArrValue = std::default_initializable<T>;
+
+    template <DeviceArrValue T>
     class DeviceArr {
     public:
         DeviceArr(const DeviceArr<T>& other);
@@ -173,7 +180,7 @@ namespace raii {
         std::size_t sizeBytes() const noexcept;
         T*          data() const noexcept;
 
-        template <std::default_initializable U = T>
+        template <DeviceArrValue U = T>
         DeviceArr<U> copy() const;
 
         // Modifiers
@@ -181,7 +188,7 @@ namespace raii {
         // by >1 bytes cannot be set this way, hence need to implement fill
         void fill(T x);
 
-        template <std::default_initializable U = T, concepts::MappingFn<T, U> F>
+        template <DeviceArrValue U = T, concepts::MappingFn<T, U> F>
         DeviceArr<U> transform(F f = F());
 
         template <concepts::MappingFn<T> F>
@@ -200,7 +207,7 @@ namespace raii {
         template <std::size_t N>
         inline static DeviceArr fromArray(const std::array<T, N>& arr);
 
-        static DeviceArr fromCArray(const T* arr, std::size_t size);
+        static DeviceArr fromRawArray(const T* arr, std::size_t size);
 
         template <typename Alloc = std::pmr::polymorphic_allocator<T>>
         inline static DeviceArr fromVector(const std::vector<T, Alloc>& vec);
@@ -217,38 +224,38 @@ namespace raii {
         std::unique_ptr<DeviceMemoryLifetimeManager<T>> mpMemMgr;
     };
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const DeviceArr<T>& other)
     : DeviceArr(other.size()) { std::cout << "copy array!\n"; }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(DeviceArr<T>&& other) {
         mpMemMgr.swap(other.mpMemMgr);
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(std::unique_ptr<DeviceMemoryLifetimeManager<T>>&& pMemMgr)
     : mpMemMgr{std::move(pMemMgr)} {}
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const std::size_t size)
     : DeviceArr::DeviceArr(size, T{}) {}
 
     DEFINE_CUDA_ERROR(DeviceArrFillError, "Could not fill memory with initial value")
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const std::size_t size, const T fillval)
     : DeviceArr{std::make_unique<DeviceMemoryLifetimeManager<T>>(size)} {
         fill(fillval);
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const std::size_t size, const T* const fillval)
     : DeviceArr{size, *fillval} {}
 
     DEFINE_CUDA_ERROR(DeviceArrToDeviceError, "Could not copy memory from host to device")
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const T* const arr, const std::size_t size)
     : DeviceArr::DeviceArr(size) {
         const auto status = cudaMemcpy(
@@ -257,67 +264,76 @@ namespace raii {
         DeviceArrToDeviceError::check(status);
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(std::initializer_list<T> iniList)
     : DeviceArr{iniList.begin(), iniList.end()} {}
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <std::input_iterator InputIt>
     inline DeviceArr<T>::DeviceArr(InputIt begin, InputIt end)
     : DeviceArr{std::vector<T>(begin, end)} {}
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <typename Alloc>
     inline DeviceArr<T>::DeviceArr(const std::vector<T, Alloc>& vec)
     : DeviceArr::DeviceArr{vec.data(), vec.size()} {}
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <std::size_t N>
     inline DeviceArr<T>::DeviceArr(const std::array<T, N>& arr)
     : DeviceArr::DeviceArr{arr.data(), N} {}
 
-    template <std::default_initializable T>
-    inline std::size_t DeviceArr<T>::size() const noexcept {
+    template <DeviceArrValue T>
+    inline std::size_t
+    DeviceArr<T>::size() const noexcept {
         return mpMemMgr->size();
     }
 
-    template <std::default_initializable T>
-    inline std::size_t DeviceArr<T>::sizeBytes() const noexcept {
+    template <DeviceArrValue T>
+    inline std::size_t
+    DeviceArr<T>::sizeBytes() const noexcept {
         return mpMemMgr->sizeBytes();
     }
 
-    template <std::default_initializable T>
-    inline T* DeviceArr<T>::data() const noexcept {
+    template <DeviceArrValue T>
+    inline T*
+    DeviceArr<T>::data() const noexcept {
         return mpMemMgr->data();
     }
 
     DEFINE_CUDA_ERROR(DeviceArrCopyError, "Could not copy memory from device to device")
 
-    template <std::default_initializable T>
-    template <std::default_initializable U>
-    inline DeviceArr<U> DeviceArr<T>::copy() const {
-        DeviceArr<T> newArr(size());
-        const auto   status = cudaMemcpy(newArr.data(), data(), sizeBytes(), cudaMemcpyDeviceToDevice);
-        DeviceArrCopyError::check(status);
+    template <DeviceArrValue T>
+    template <DeviceArrValue U>
+    inline DeviceArr<U>
+    DeviceArr<T>::copy() const {
+        DeviceArr<U> newArr(size());
+        try {
+            launcher::copy(newArr.data(), data(), size());
+        } catch (const launcher::DeviceCopyError& e) {
+            DeviceArrCopyError::check(e.err);
+        }
 
         return newArr;
     }
 
     DEFINE_CUDA_ERROR(DeviceArrToHostError, "Could not copy memory from device to host")
 
-    template <std::default_initializable T>
-    inline void DeviceArr<T>::fill(const T fillval) {
+    template <DeviceArrValue T>
+    inline void
+    DeviceArr<T>::fill(const T fillval) {
         try {
-            launcher::fill(mpMemMgr->data(), fillval, size());
+            launcher::fill(mpMemMgr->data(), size(), fillval);
             cuda_utils::host::checkKernelLaunch("");
         } catch (const cuda_utils::host::CudaKernelLaunchError& e) {
             throw DeviceArrFillError(e.err);
         }
     }
 
-    template <std::default_initializable T>
-    template <std::default_initializable U, concepts::MappingFn<T, U> F>
-    inline DeviceArr<U> DeviceArr<T>::transform(F f) {
+    template <DeviceArrValue T>
+    template <DeviceArrValue U, concepts::MappingFn<T, U> F>
+    inline DeviceArr<U>
+    DeviceArr<T>::transform(F f) {
         DeviceArr<U> newArr(size());
         launcher::map(newArr.data(), data(), size(), f);
         cuda_utils::host::checkKernelLaunch("map");
@@ -325,26 +341,30 @@ namespace raii {
         return newArr;
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <concepts::MappingFn<T> F>
-    inline void DeviceArr<T>::transform_inplace(F f) {
+    inline void
+    DeviceArr<T>::transform_inplace(F f) {
         launcher::map(data(), data(), size(), f);
         cuda_utils::host::checkKernelLaunch("map");
     }
 
-    template <std::default_initializable T>
-    inline std::string DeviceArr<T>::toString() const {
+    template <DeviceArrValue T>
+    inline std::string
+    DeviceArr<T>::toString() const {
         return utils::fmtVec(toHost());
     }
 
-    template <std::default_initializable T>
-    inline void DeviceArr<T>::print(const std::string& end, std::ostream& out) const {
+    template <DeviceArrValue T>
+    inline void
+    DeviceArr<T>::print(const std::string& end, std::ostream& out) const {
         utils::printVec(toHost(), end, out);
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <typename Alloc>
-    inline std::vector<T, Alloc> DeviceArr<T>::toHost() const {
+    inline std::vector<T, Alloc>
+    DeviceArr<T>::toHost() const {
         // zeroed-out memory
         std::vector<T, Alloc> hostVec(size());
 
@@ -356,26 +376,30 @@ namespace raii {
         return hostVec;
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <std::size_t N>
-    inline DeviceArr<T> DeviceArr<T>::fromArray(const std::array<T, N>& arr) {
+    inline DeviceArr<T>
+    DeviceArr<T>::fromArray(const std::array<T, N>& arr) {
         return {arr};
     }
 
-    template <std::default_initializable T>
-    inline DeviceArr<T> DeviceArr<T>::fromCArray(const T* const arr, std::size_t size) {
+    template <DeviceArrValue T>
+    inline DeviceArr<T>
+    DeviceArr<T>::fromRawArray(const T* const arr, std::size_t size) {
         return {arr, size};
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <typename Alloc>
-    inline DeviceArr<T> DeviceArr<T>::fromVector(const std::vector<T, Alloc>& vec) {
+    inline DeviceArr<T>
+    DeviceArr<T>::fromVector(const std::vector<T, Alloc>& vec) {
         return {vec};
     }
 
-    template <std::default_initializable T>
+    template <DeviceArrValue T>
     template <concepts::InputIter<T> InputIt>
-    inline DeviceArr<T> DeviceArr<T>::fromIter(InputIt begin, InputIt end) {
+    inline DeviceArr<T>
+    DeviceArr<T>::fromIter(InputIt begin, InputIt end) {
         return {begin, end};
     }
 } // namespace raii

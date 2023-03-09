@@ -1,6 +1,7 @@
 #include <iostream>
 
-int main() {
+int
+main() {
     cudaDeviceProp props;
     const int      device = 0;
     cudaGetDeviceProperties(&props, device);

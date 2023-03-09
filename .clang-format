@@ -1,3 +1,4 @@
+Language: Cpp
 BasedOnStyle: LLVM
 UseTab: Never
 IndentWidth: 4
@@ -12,7 +13,8 @@ AlignConsecutiveDeclarations: true
 AlignConsecutiveMacros: true
 AlignEscapedNewlines: true
 AlignOperands: AlignAfterOperator
+AlwaysBreakAfterReturnType: AllDefinitions
 PointerAlignment: Left
 ReferenceAlignment: Left
-LineEnding: DeriveLF
-InsertNewlineAtEOF: true
+# LineEnding: DeriveLF # clang-format >= 16
+# InsertNewlineAtEOF: true # clang-format >= 16

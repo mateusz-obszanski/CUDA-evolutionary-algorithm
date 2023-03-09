@@ -7,7 +7,8 @@
 
 template <std::default_initializable T>
 struct TimesTwo {
-    inline __device__ T operator()(T x) {
+    inline __device__ T
+    operator()(T x) {
         return 2 * x;
     }
 };
@@ -19,22 +20,25 @@ private:
 
 public:
     DeviceLambda(F f) : f(f) {}
-    inline __device__ T operator()(const T x) {
+    inline __device__ T
+    operator()(const T x) {
         return f(x);
     }
 };
 
 template <std::default_initializable T>
-inline __host__ __device__ T timesTwo(T x) {
+inline __host__ __device__ T
+timesTwo(T x) {
     return 2 * x;
 }
 
-void deviceRaiiDemo() {
+void
+deviceRaiiDemo() {
     try {
         std::vector<float> hArr = {9, 8, 7, 6};
 
         const raii::DeviceArr<int>   dArr1(10, 42);
-        raii::DeviceArr<int>         dArr2 = {1, 2, 3};
+        const raii::DeviceArr<int>   dArr2 = {1, 2, 3};
         const raii::DeviceArr<float> dArr3{hArr.begin(), hArr.end()};
         const raii::DeviceArr<float> dArr4{hArr};
         const raii::DeviceArr<float> dArr5{std::array<float, 3>{4.5, 5, 6}};
@@ -50,20 +54,24 @@ void deviceRaiiDemo() {
         dArr5.print();
         dArr6.print();
 
+        // changing copy type
+        raii::DeviceArr<float> dArr2copy = dArr2.copy<float>();
+
         // TODO fix type error
         std::cout << "transform_inplace *2:\n"
                   << "before: ";
-        dArr2.print();
+        dArr2copy.print();
         std::cout << "after: ";
-        // dArr2.transform_inplace(timesTwo<int>); // this results in CUDA invalid program counter error
+        // dArr2copy.transform_inplace(timesTwo<int>); // this results in CUDA invalid program counter error
         // always pass classes/structs with __device__ operator()
-        dArr2.transform_inplace(TimesTwo<int>{});
-        dArr2.print();
+        dArr2copy.transform_inplace(TimesTwo<int>{});
+        dArr2copy.print();
 
-        std::cout << "transform: " << dArr2.transform(TimesTwo<int>{}).toString() << '\n';
+        std::cout << "transform: " << dArr2copy.transform(TimesTwo<int>{}).toString() << '\n';
         // vvv not working
         // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda([](const int x) -> int { return 2 * x; })).toString();
-        std::cout << "lambda transform: " << dArr2.transform([] __device__(const int x) -> int { return 2 * x; }).toString() << '\n';
+        // vvv this works only with --extended-lambda NVCC compilation flag
+        std::cout << "lambda transform: " << dArr2copy.transform([] __device__(const int x) -> int { return 2 * x; }).toString() << '\n';
 
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
@@ -74,7 +82,8 @@ void deviceRaiiDemo() {
     }
 }
 
-int main() {
+int
+main() {
     deviceRaiiDemo();
 
     return 0;

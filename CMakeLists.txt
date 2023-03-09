@@ -15,7 +15,7 @@ find_program(gxx_path g++)
 find_program(msvc_path msvc.exe)
 
 if(clangxx_path)
-  message("Detected compiler: clang++")
+  message("Detected preferred compiler: clang++")
   set(CMAKE_CUDA_HOST_COMPILER ${msvc_path})
   list(APPEND host_compiler_flags
     --compiler-bindir=clang++
@@ -46,7 +46,7 @@ endif()
 # ninja instead of make
 find_program(ninja_path ninja)
 if(ninja_path)
-  message("Detected build tool: Ninja")
+  message("Detected preferred build tool: Ninja")
   set(CMAKE_GENERATOR Ninja)
 endif()
 
@@ -66,11 +66,11 @@ target_compile_features(EA PUBLIC cxx_std_20)
 
 target_compile_options(
   EA PRIVATE
+  # --verbose
   # CUDA compiler flags
   --forward-unknown-opts
   -Xptxas
   -O3
   --extended-lambda
-  --std=c++20
   ${host_compiler_flags}
 )

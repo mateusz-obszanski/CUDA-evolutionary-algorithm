@@ -16,4 +16,7 @@ namespace concepts {
 
     template <typename _InIt, typename T>
     concept InputIter = std::input_iterator<_InIt> && requires(_InIt it) {{*it} -> std::convertible_to<T>; };
+
+    template <typename DestT, typename SrcT>
+    concept ConstructibleButDifferent = (std::constructible_from<DestT, SrcT> and not std::same_as<DestT, SrcT>);
 } // namespace concepts
