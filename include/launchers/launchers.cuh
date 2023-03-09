@@ -5,25 +5,15 @@
 #include "../cuda_utils/exceptions.cuh"
 #include "../kernels/kernels.cuh"
 #include "../types.hxx"
+#include "./_utils.cuh"
 #include <concepts>
 #include <cstddef>
 
 namespace launcher {
-    namespace utils {
-        template <typename Size = std::size_t>
-        PairOf<Size>
-        calcLaunchParams(const Size nElems) {
-            constexpr std::size_t blockSize = 1024;
-            const auto            nBlocks   = cuda_utils::divCeil<std::size_t>(nElems, blockSize);
-
-            return {nBlocks, blockSize};
-        }
-    } // namespace utils
-
     template <typename T>
     inline void
     fill(dRawVecOut<T> arr, const std::size_t nElems, const T fillval) {
-        const auto&& [nBlocks, blockSize] = utils::calcLaunchParams(nElems);
+        const auto&& [nBlocks, blockSize] = utils::calcLaunchParams1D(nElems);
 
         kernel::fill<<<nBlocks, blockSize>>>(arr, nElems, fillval);
         cuda_utils::host::checkKernelLaunch("fill");
@@ -59,7 +49,7 @@ namespace launcher {
     template <typename SrcT, concepts::ConstructibleButDifferent<SrcT> DestT>
     inline void
     copy(dRawVecOut<DestT> dest, dRawVecIn<SrcT> src, std::size_t nElems) {
-        const auto&& [nBlocks, blockSize] = utils::calcLaunchParams(nElems);
+        const auto&& [nBlocks, blockSize] = utils::calcLaunchParams1D(nElems);
 
         kernel::copy<<<nBlocks, blockSize>>>(dest, src, nElems);
 

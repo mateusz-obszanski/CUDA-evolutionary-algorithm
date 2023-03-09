@@ -335,8 +335,8 @@ namespace raii {
     inline DeviceArr<U>
     DeviceArr<T>::transform(F f) {
         DeviceArr<U> newArr(size());
-        launcher::map(newArr.data(), data(), size(), f);
-        cuda_utils::host::checkKernelLaunch("map");
+        launcher::transform(newArr.data(), data(), size(), f);
+        cuda_utils::host::checkKernelLaunch("transform");
 
         return newArr;
     }
@@ -345,8 +345,8 @@ namespace raii {
     template <concepts::MappingFn<T> F>
     inline void
     DeviceArr<T>::transform_inplace(F f) {
-        launcher::map(data(), data(), size(), f);
-        cuda_utils::host::checkKernelLaunch("map");
+        launcher::transform(data(), data(), size(), f);
+        cuda_utils::host::checkKernelLaunch("transform");
     }
 
     template <DeviceArrValue T>
