@@ -14,6 +14,9 @@
             if (status != cudaSuccess)                                         \
                 throw ERR_NAME(status);                                        \
         }                                                                      \
+        static inline void check() {                                           \
+            check(cudaGetLastError());                                         \
+        }                                                                      \
     };
 
 namespace cuda_utils {

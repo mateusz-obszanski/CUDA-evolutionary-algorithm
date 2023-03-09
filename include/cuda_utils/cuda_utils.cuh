@@ -5,7 +5,7 @@
 
 namespace cuda_utils {
     template <std::convertible_to<double> T = long long>
-    inline __host__ __device__ T
+    inline constexpr __host__ __device__ T
     divCeil(T x, T y) {
         return ceil(static_cast<double>(x) / y);
     }
