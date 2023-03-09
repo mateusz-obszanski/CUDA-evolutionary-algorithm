@@ -34,7 +34,6 @@ namespace cuda_utils {
 
         protected:
             std::string msg;
-            CudaError() = default;
         };
 
         class CudaKernelLaunchError : public CudaError {

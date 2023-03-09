@@ -62,7 +62,7 @@ namespace raii {
     DEFINE_CUDA_ERROR(DeviceFreeError, "Could not free device memory")
 
     template <typename T>
-    inline void DeviceAllocator<T>::deallocate(pointer p, size_type n) {
+    inline void DeviceAllocator<T>::deallocate(pointer p, size_type) {
         const auto status = cudaFree(p);
         DeviceFreeError::check(status);
     }
@@ -173,15 +173,16 @@ namespace raii {
         std::size_t sizeBytes() const noexcept;
         T*          data() const noexcept;
 
-        DeviceArr<T> copy() const;
+        template <std::default_initializable U = T>
+        DeviceArr<U> copy() const;
 
         // Modifiers
         // cudaMemset sets bytes, so for sizeof(T) > 1 values representable
         // by >1 bytes cannot be set this way, hence need to implement fill
         void fill(T x);
 
-        template <concepts::MappingFn<T> F>
-        DeviceArr<T> transform(F f = F{});
+        template <std::default_initializable U = T, concepts::MappingFn<T, U> F>
+        DeviceArr<U> transform(F f = F());
 
         template <concepts::MappingFn<T> F>
         void transform_inplace(F f);
@@ -189,7 +190,7 @@ namespace raii {
         // TODO reduce
 
         // Host <-> device
-        std::string toString(const std::string& end = "\n") const;
+        std::string toString() const;
         void        print(const std::string& end = "\n", std::ostream& out = std::cout) const;
 
         template <typename Alloc = std::pmr::polymorphic_allocator<T>>
@@ -293,7 +294,8 @@ namespace raii {
     DEFINE_CUDA_ERROR(DeviceArrCopyError, "Could not copy memory from device to device")
 
     template <std::default_initializable T>
-    inline DeviceArr<T> DeviceArr<T>::copy() const {
+    template <std::default_initializable U>
+    inline DeviceArr<U> DeviceArr<T>::copy() const {
         DeviceArr<T> newArr(size());
         const auto   status = cudaMemcpy(newArr.data(), data(), sizeBytes(), cudaMemcpyDeviceToDevice);
         DeviceArrCopyError::check(status);
@@ -314,11 +316,11 @@ namespace raii {
     }
 
     template <std::default_initializable T>
-    template <concepts::MappingFn<T> F>
-    inline DeviceArr<T> DeviceArr<T>::transform(F f) {
-        auto newArr = copy();
-
-        newArr.transform_inplace(f);
+    template <std::default_initializable U, concepts::MappingFn<T, U> F>
+    inline DeviceArr<U> DeviceArr<T>::transform(F f) {
+        DeviceArr<U> newArr(size());
+        launcher::map(newArr.data(), data(), size(), f);
+        cuda_utils::host::checkKernelLaunch("map");
 
         return newArr;
     }
@@ -326,12 +328,12 @@ namespace raii {
     template <std::default_initializable T>
     template <concepts::MappingFn<T> F>
     inline void DeviceArr<T>::transform_inplace(F f) {
-        launcher::map(mpMemMgr->data(), mpMemMgr->data(), size(), f);
-        cuda_utils::host::checkKernelLaunch("transform_inplace");
+        launcher::map(data(), data(), size(), f);
+        cuda_utils::host::checkKernelLaunch("map");
     }
 
     template <std::default_initializable T>
-    inline std::string DeviceArr<T>::toString(const std::string& end) const {
+    inline std::string DeviceArr<T>::toString() const {
         return utils::fmtVec(toHost());
     }
 

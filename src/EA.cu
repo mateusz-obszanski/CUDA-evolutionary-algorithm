@@ -12,6 +12,18 @@ struct TimesTwo {
     }
 };
 
+template <std::default_initializable T, concepts::MappingFn<T> F>
+struct DeviceLambda {
+private:
+    F f;
+
+public:
+    DeviceLambda(F f) : f(f) {}
+    inline __device__ T operator()(const T x) {
+        return f(x);
+    }
+};
+
 template <std::default_initializable T>
 inline __host__ __device__ T timesTwo(T x) {
     return 2 * x;
@@ -49,6 +61,9 @@ void deviceRaiiDemo() {
         dArr2.print();
 
         std::cout << "transform: " << dArr2.transform(TimesTwo<int>{}).toString() << '\n';
+        // vvv not working
+        // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda([](const int x) -> int { return 2 * x; })).toString();
+        std::cout << "lambda transform: " << dArr2.transform([] __device__(const int x) -> int { return 2 * x; }).toString() << '\n';
 
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
