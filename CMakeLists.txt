@@ -60,7 +60,8 @@ link_directories(
 )
 
 add_executable(EA src/EA.cu)
-# set_property(TARGET EA PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+# vvv for recursive kernel calls
+set_property(TARGET EA PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 target_compile_features(EA PUBLIC cxx_std_20)
 

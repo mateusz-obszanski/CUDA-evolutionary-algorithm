@@ -13,7 +13,7 @@ AlignConsecutiveDeclarations: true
 AlignConsecutiveMacros: true
 AlignEscapedNewlines: true
 AlignOperands: AlignAfterOperator
-AlwaysBreakAfterReturnType: AllDefinitions
+AlwaysBreakAfterReturnType: All
 PointerAlignment: Left
 ReferenceAlignment: Left
 # LineEnding: DeriveLF # clang-format >= 16

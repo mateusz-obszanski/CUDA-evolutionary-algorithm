@@ -25,4 +25,20 @@ namespace kernel {
 
         dest[idx] = static_cast<DestT>(src[idx]);
     }
+
+    template <typename T>
+    concept CountingAble = concepts::Addable<T> && concepts::Multiplicable<T> && std::constructible_from<T, unsigned int>;
+
+    template <CountingAble T>
+    inline void
+    counting(dRawVecOut<T> out, const std::size_t nElems, const T start, const T step) {
+        const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+        if (idx >= nElems)
+            return;
+
+        const auto n = start + static_cast<T>(idx) * step;
+
+        out[idx] = n;
+    }
 } // namespace kernel

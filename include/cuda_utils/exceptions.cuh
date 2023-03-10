@@ -46,6 +46,8 @@ namespace cuda_utils {
             }
         };
 
+        /// @brief raises cuda_utils::host::CudaKernelLaunchError
+        /// @param kernelName
         void
         checkKernelLaunch(const std::string& kernelName) {
             if (const auto status = cudaDeviceSynchronize())

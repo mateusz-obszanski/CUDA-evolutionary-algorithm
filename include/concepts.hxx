@@ -6,7 +6,16 @@
 
 namespace concepts {
     template <typename T, typename U = T, typename R = T>
-    concept Addable = requires(T x, T y) {{x + y} -> std::convertible_to<R>; };
+    concept Addable = requires(T x, U y) {{x + y} -> std::convertible_to<R>; };
+
+    template <typename T, typename U = T, typename R = T>
+    concept Subtractable = requires(T x, U y) {{x - y} -> std::convertible_to<R>; };
+
+    template <typename T, typename U = T, typename R = T>
+    concept Multiplicable = requires(T x, U y) {{x * y} -> std::convertible_to<R>; };
+
+    template <typename T, typename U = T>
+    concept WeaklyComparable = requires(T x, U y) {{x < y} -> std::same_as<bool>; };
 
     template <typename F, typename X, typename Y = X>
     concept MappingFn = std::is_invocable_r<Y, F, X>::value;

@@ -22,12 +22,14 @@ public:
     __device__ T&
     operator[](const size_t i) { return data[i]; }
 
-    __host__ dVec() = delete;
+    __host__
+    dVec() = delete;
 };
 
 template <typename T>
 class dVecShared {
-    __device__ dVecShared() = delete;
+    __device__
+    dVecShared() = delete;
 };
 
 template <typename T>

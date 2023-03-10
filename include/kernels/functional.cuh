@@ -41,7 +41,7 @@ namespace kernel {
 
         // load to shared buffer
         T zero();
-        s_buff[threadIdx.x] = idx < len ? in[idx] : zero;
+        s_buff[threadIdx.x] = idx < len ? in[idx] : T();
 
         // reduce shared buffer
         for (ulong nActiveThreads{blockDim.x >> 1}; nActiveThreads > 0; nActiveThreads >>= 1) {
@@ -71,7 +71,7 @@ namespace kernel {
             // grid dimension. Otherwise, just write launcher that runs
             // the kernel multiple times (if RECURSE strategy is given) and
             // reuses allocated memory. Otherwise, R.I.P.
-            reduce<<<gridDim.x, REDUCE_THREAD_N>>>(buffOut, buffOut, gridDim.x, f, strategy);
+            kernel::reduce<<<gridDim.x, REDUCE_THREAD_N>>>(buffOut, buffOut, gridDim.x, f, strategy);
         }
     }
 } // namespace kernel

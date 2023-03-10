@@ -1,7 +1,9 @@
 #pragma once
 
 #include "./concepts.hxx"
+#include "./cuda_ops.cuh"
 #include "./cuda_utils/exceptions.cuh"
+#include "./exceptions.hxx"
 #include "./launchers/functional.cuh"
 #include "./launchers/launchers.cuh"
 #include "./macros.hxx"
@@ -39,9 +41,12 @@ namespace raii {
         template <typename U>
         inline DeviceAllocator(const DeviceAllocator<U>&) noexcept {}
 
-        [[nodiscard]] pointer allocate(size_type n);
-        void                  deallocate(pointer p, size_type n);
-        void                  deallocate(pointer p);
+        [[nodiscard]] pointer
+        allocate(size_type n);
+        void
+        deallocate(pointer p, size_type n);
+        void
+        deallocate(pointer p);
     };
 
     template <typename T>
@@ -87,9 +92,12 @@ namespace raii {
         ~DeviceMemoryLifetimeManager();
 
         template <typename U = T>
-        inline U* data() const noexcept;
-        size_t    size() const noexcept;
-        size_t    sizeBytes() const noexcept;
+        inline U*
+        data() const noexcept;
+        size_t
+        size() const noexcept;
+        size_t
+        sizeBytes() const noexcept;
 
     private:
         DeviceMemoryLifetimeManager();
@@ -124,9 +132,9 @@ namespace raii {
             mAllocator.deallocate(mpData, sizeBytes());
             // no throwing inside the destructor
         } catch (const DeviceFreeError&) {
-            std::cerr << "ERROR: could not deallocate device memory\n";
+            std::cerr << "\nERROR: could not deallocate device memory\n";
         } catch (...) {
-            std::cerr << "UNKNOWN ERROR: could not deallocate device memory\n";
+            std::cerr << "\nUNKNOWN ERROR: could not deallocate device memory\n";
         }
     }
 
@@ -149,8 +157,11 @@ namespace raii {
     }
 
     // helper concept
+    // concepts::Addable/Subtractable and std::convertible_to<std::size_t>
+    // for fancy counter counstructors
     template <typename T>
-    concept DeviceArrValue = std::default_initializable<T>;
+    concept DeviceArrValue =
+        std::default_initializable<T> && concepts::Addable<T> && concepts::Subtractable<T> && std::convertible_to<T, std::size_t> && concepts::WeaklyComparable<T> && launcher::CountingAble<T>;
 
     template <DeviceArrValue T>
     class DeviceArr {
@@ -176,44 +187,78 @@ namespace raii {
         inline DeviceArr(const std::vector<T, Alloc>& vec);
 
         // Getters
-        std::size_t size() const noexcept;
-        std::size_t sizeBytes() const noexcept;
-        T*          data() const noexcept;
+        std::size_t
+        size() const noexcept;
+        std::size_t
+        sizeBytes() const noexcept;
+        T*
+        data() const noexcept;
 
         template <DeviceArrValue U = T>
-        DeviceArr<U> copy() const;
+        DeviceArr<U>
+        copy() const;
 
         // Modifiers
         // cudaMemset sets bytes, so for sizeof(T) > 1 values representable
         // by >1 bytes cannot be set this way, hence need to implement fill
-        void fill(T x);
+        void
+        fill(T x);
 
         template <DeviceArrValue U = T, concepts::MappingFn<T, U> F>
-        DeviceArr<U> transform(F f = F());
+        DeviceArr<U>
+        transform(F f = F()) const;
 
         template <concepts::MappingFn<T> F>
-        void transform_inplace(F f);
+        void
+        transform_inplace(F f);
 
-        // TODO reduce
+        template <
+            launcher::Reductible       Acc = T,
+            concepts::Reductor<T, Acc> F   = cuda_ops::Add<Acc, T>>
+        inline Acc
+        reduce(F f = cuda_ops::Add<Acc, T>()) const;
 
         // Host <-> device
-        std::string toString() const;
-        void        print(const std::string& end = "\n", std::ostream& out = std::cout) const;
+        std::string
+        toString() const;
+        void
+        print(const std::string& end = "\n", std::ostream& out = std::cout) const;
 
         template <typename Alloc = std::pmr::polymorphic_allocator<T>>
-        inline std::vector<T, Alloc> toHost() const;
+        inline std::vector<T, Alloc>
+        toHost() const;
 
         // Static methods
         template <std::size_t N>
-        inline static DeviceArr fromArray(const std::array<T, N>& arr);
+        inline static DeviceArr
+        fromArray(const std::array<T, N>& arr);
 
-        static DeviceArr fromRawArray(const T* arr, std::size_t size);
+        static DeviceArr
+        fromRawArray(const T* arr, std::size_t size);
 
         template <typename Alloc = std::pmr::polymorphic_allocator<T>>
-        inline static DeviceArr fromVector(const std::vector<T, Alloc>& vec);
+        inline static DeviceArr
+        fromVector(const std::vector<T, Alloc>& vec);
 
         template <concepts::InputIter<T> InputIt>
-        inline static DeviceArr fromIter(InputIt begin, InputIt end);
+        inline static DeviceArr
+        fromIter(InputIt begin, InputIt end);
+
+        // Fancy constructors
+        static DeviceArr<T>
+        createFull(std::size_t nElems, T fillval);
+
+        static DeviceArr<T>
+        createOnes(std::size_t nElems);
+
+        static DeviceArr<T>
+        createZeros(std::size_t nElems);
+
+        static DeviceArr<T>
+        createCount(T stop);
+
+        static DeviceArr<T>
+        createCount(T start, T stop, T step = 1);
 
     private:
         DeviceArr();
@@ -251,7 +296,7 @@ namespace raii {
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const std::size_t size, const T* const fillval)
-    : DeviceArr{size, *fillval} {}
+    : DeviceArr(size, *fillval) {}
 
     DEFINE_CUDA_ERROR(DeviceArrToDeviceError, "Could not copy memory from host to device")
 
@@ -266,22 +311,22 @@ namespace raii {
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(std::initializer_list<T> iniList)
-    : DeviceArr{iniList.begin(), iniList.end()} {}
+    : DeviceArr(iniList.begin(), iniList.end()) {}
 
     template <DeviceArrValue T>
     template <std::input_iterator InputIt>
     inline DeviceArr<T>::DeviceArr(InputIt begin, InputIt end)
-    : DeviceArr{std::vector<T>(begin, end)} {}
+    : DeviceArr(std::vector<T>(begin, end)) {}
 
     template <DeviceArrValue T>
     template <typename Alloc>
     inline DeviceArr<T>::DeviceArr(const std::vector<T, Alloc>& vec)
-    : DeviceArr::DeviceArr{vec.data(), vec.size()} {}
+    : DeviceArr::DeviceArr(vec.data(), vec.size()) {}
 
     template <DeviceArrValue T>
     template <std::size_t N>
     inline DeviceArr<T>::DeviceArr(const std::array<T, N>& arr)
-    : DeviceArr::DeviceArr{arr.data(), N} {}
+    : DeviceArr::DeviceArr(arr.data(), N) {}
 
     template <DeviceArrValue T>
     inline std::size_t
@@ -333,7 +378,7 @@ namespace raii {
     template <DeviceArrValue T>
     template <DeviceArrValue U, concepts::MappingFn<T, U> F>
     inline DeviceArr<U>
-    DeviceArr<T>::transform(F f) {
+    DeviceArr<T>::transform(F f) const {
         DeviceArr<U> newArr(size());
         launcher::transform(newArr.data(), data(), size(), f);
         cuda_utils::host::checkKernelLaunch("transform");
@@ -347,6 +392,13 @@ namespace raii {
     DeviceArr<T>::transform_inplace(F f) {
         launcher::transform(data(), data(), size(), f);
         cuda_utils::host::checkKernelLaunch("transform");
+    }
+
+    template <DeviceArrValue T>
+    template <launcher::Reductible Acc, concepts::Reductor<T, Acc> F>
+    inline Acc
+    DeviceArr<T>::reduce(F f) const {
+        return launcher::reduce(data(), size(), f, launcher::ReduceStrategy::RECURSE);
     }
 
     template <DeviceArrValue T>
@@ -401,5 +453,45 @@ namespace raii {
     inline DeviceArr<T>
     DeviceArr<T>::fromIter(InputIt begin, InputIt end) {
         return {begin, end};
+    }
+
+    template <DeviceArrValue T>
+    inline DeviceArr<T>
+    DeviceArr<T>::createFull(const std::size_t nElems, const T fillval) {
+        DeviceArr<T> arr(nElems);
+        arr.fill(fillval);
+
+        return arr;
+    }
+
+    template <DeviceArrValue T>
+    inline DeviceArr<T>
+    DeviceArr<T>::createOnes(const std::size_t nElems) {
+        return createFull(nElems, static_cast<T>(1));
+    }
+
+    template <DeviceArrValue T>
+    inline DeviceArr<T>
+    DeviceArr<T>::createZeros(const std::size_t nElems) {
+        const T zero = T();
+        return createFull(nElems, zero);
+    }
+
+    template <DeviceArrValue T>
+    inline DeviceArr<T>
+    DeviceArr<T>::createCount(const T stop) {
+        return createCount(0, stop);
+    }
+
+    template <DeviceArrValue T>
+    inline DeviceArr<T>
+    DeviceArr<T>::createCount(
+        const T start, const T stop, const T step) {
+
+        const auto        delta  = (start < stop) ? (stop - start) : (start - stop);
+        const std::size_t nElems = static_cast<std::size_t>(delta) / static_cast<std::size_t>(step);
+        DeviceArr<T>      counted(nElems);
+
+        launcher::counting(counted.data(), start, stop, step);
     }
 } // namespace raii
