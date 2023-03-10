@@ -10,10 +10,6 @@
 #include "./_utils.cuh"
 
 namespace launcher {
-    // TODO reduction
-    // TODO mapReduce
-    // TODO mapContext with or without padding and mode (e.g. for convolution)
-
     template <typename A, typename B, concepts::MappingFn<A, B> F>
     inline void
     transform(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f) {

@@ -72,6 +72,7 @@ deviceRaiiDemo() {
         // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda([](const int x) -> int { return 2 * x; })).toString();
         // vvv this works only with --extended-lambda NVCC compilation flag
         std::cout << "lambda transform: " << dArr2copy.transform([] __device__(const int x) -> int { return 2 * x; }).toString() << '\n';
+        std::cout << "partial transform: " << dArr2copy.transform(cuda_ops::Partial<cuda_ops::Mult<float>, float>(2)).toString() << '\n';
         std::cout << "sum 10 000 ones: " << raii::DeviceArr<std::size_t>::createOnes(10'000).reduce() << '\n';
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';

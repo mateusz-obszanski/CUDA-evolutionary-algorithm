@@ -65,13 +65,9 @@ namespace kernel {
                 return;
 
             // recursive strategy, launch child grid - only from the globally first thread
+            // requires CUDA separate compilation (cmake target property CUDA_SEPARABLE_COMPILATION ON)
             __syncthreads();
-            // if gridDim.x cannot be passed to child grid (because it is local),
-            // add kernel overload or something that will deduce len from its
-            // grid dimension. Otherwise, just write launcher that runs
-            // the kernel multiple times (if RECURSE strategy is given) and
-            // reuses allocated memory. Otherwise, R.I.P.
-            kernel::reduce<<<gridDim.x, REDUCE_THREAD_N>>>(buffOut, buffOut, gridDim.x, f, strategy);
+            reduce<<<gridDim.x, REDUCE_THREAD_N>>>(buffOut, buffOut, gridDim.x, f, strategy);
         }
     }
 } // namespace kernel

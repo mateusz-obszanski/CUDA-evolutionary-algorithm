@@ -17,8 +17,11 @@ namespace concepts {
     template <typename T, typename U = T>
     concept WeaklyComparable = requires(T x, U y) {{x < y} -> std::same_as<bool>; };
 
+    template <typename F, typename R, typename... Ts>
+    concept Fun = std::is_invocable_r_v<R, F, Ts...>;
+
     template <typename F, typename X, typename Y = X>
-    concept MappingFn = std::is_invocable_r<Y, F, X>::value;
+    concept MappingFn = Fun<F, Y, X>;
 
     template <typename F, typename X>
     concept Endomorphism = MappingFn<F, X, X>;
