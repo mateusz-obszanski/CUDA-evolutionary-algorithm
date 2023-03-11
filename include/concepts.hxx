@@ -4,15 +4,15 @@
 #include <iterator>
 #include <string>
 
+#define _CONCEPTS_DEFINE_BINOP_CONCEPT(NAME, EXPRESSION)  \
+    template <typename T, typename U = T, typename R = T> \
+    concept NAME = requires(T x, U y) {{EXPRESSION} -> std::convertible_to<R>; };
+
 namespace concepts {
-    template <typename T, typename U = T, typename R = T>
-    concept Addable = requires(T x, U y) {{x + y} -> std::convertible_to<R>; };
-
-    template <typename T, typename U = T, typename R = T>
-    concept Subtractable = requires(T x, U y) {{x - y} -> std::convertible_to<R>; };
-
-    template <typename T, typename U = T, typename R = T>
-    concept Multiplicable = requires(T x, U y) {{x * y} -> std::convertible_to<R>; };
+    _CONCEPTS_DEFINE_BINOP_CONCEPT(Addable, x + y)
+    _CONCEPTS_DEFINE_BINOP_CONCEPT(Subtractable, x - y)
+    _CONCEPTS_DEFINE_BINOP_CONCEPT(Multiplicable, x* y)
+    _CONCEPTS_DEFINE_BINOP_CONCEPT(Divisible, x / y)
 
     template <typename T, typename U = T>
     concept WeaklyComparable = requires(T x, U y) {{x < y} -> std::same_as<bool>; };
@@ -40,4 +40,7 @@ namespace concepts {
 
     template <typename F, typename T, typename Acc = T>
     concept Reductor = BinOp<F, Acc, T, Acc>;
+
+    template <typename F, typename... Ts>
+    concept Predicate = Fun<F, bool, Ts...>;
 } // namespace concepts

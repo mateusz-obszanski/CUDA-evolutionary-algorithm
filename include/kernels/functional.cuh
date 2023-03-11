@@ -7,7 +7,7 @@
 #include <concepts>
 
 namespace kernel {
-    template <typename A, typename B, concepts::MappingFn<A, B> F>
+    template <typename A, typename B = A, concepts::MappingFn<A, B> F>
     /// @brief Dimensions:
     /// - grid: ceil(width / FUNCTIONAL_THREADS_IN_BLOCK) x 1 x 1
     /// - block: FUNCTIONAL_THREADS_IN_BLOCK x 1 x 1
@@ -21,6 +21,22 @@ namespace kernel {
         out[idx] = f(in[idx]);
     }
 
+    template <typename A, typename B = A, concepts::MappingFn<A, B> F, concepts::Predicate<A> P>
+    __global__ void
+    transform_if_not(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f, P p) {
+        const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+        if (idx >= len)
+            return;
+
+        const auto a = in[idx];
+
+        if (p(a))
+            return;
+
+        out[idx] = f(a);
+    }
+
     enum class ReduceStrategy { NORMAL,
                                 RECURSE };
 
@@ -32,9 +48,9 @@ namespace kernel {
 
     /// @brief
     /// @param buffOut length == gridDim.x (no. of blocks)
-    template <Reductible T, Reductible Acc = T, concepts::Reductor<T, Acc> F = cuda_ops::Add<Acc, T>>
+    template <Reductible T, Reductible Acc = T, concepts::Reductor<T, Acc> F = cuda_ops::Add2<Acc, T>>
     __global__ void
-    reduce(dRawVecOut<Acc> buffOut, dRawVecIn<T> in, culong len, F f = cuda_ops::Add<Acc, T>{}, ReduceStrategy strategy = ReduceStrategy::RECURSE) {
+    reduce(dRawVecOut<Acc> buffOut, dRawVecIn<T> in, culong len, F f = cuda_ops::Add2<Acc, T>{}, ReduceStrategy strategy = ReduceStrategy::RECURSE) {
         __shared__ Acc s_buff[REDUCE_BUFF_LENGTH];
 
         const auto idx = blockIdx.x * blockDim.x + threadIdx.x;

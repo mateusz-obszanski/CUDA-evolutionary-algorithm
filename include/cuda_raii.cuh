@@ -214,9 +214,9 @@ namespace raii {
 
         template <
             launcher::Reductible       Acc = T,
-            concepts::Reductor<T, Acc> F   = cuda_ops::Add<Acc, T>>
+            concepts::Reductor<T, Acc> F   = cuda_ops::Add2<Acc, T>>
         inline Acc
-        reduce(F f = cuda_ops::Add<Acc, T>()) const;
+        reduce(F f = cuda_ops::Add2<Acc, T>()) const;
 
         // Host <-> device
         std::string

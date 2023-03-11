@@ -41,7 +41,7 @@ namespace launcher {
     template <
         Reductible                 T,
         Reductible                 Acc = T,
-        concepts::Reductor<T, Acc> F   = cuda_ops::Add<Acc, T>>
+        concepts::Reductor<T, Acc> F   = cuda_ops::Add2<Acc, T>>
     inline void
     reduce(
         dRawVecOut<Acc> dBuff,
@@ -50,8 +50,6 @@ namespace launcher {
         F               f        = F(),
         ReduceStrategy  strategy = ReduceStrategy::RECURSE) {
 
-        // TODO remove strategy choice or handle it
-        std::cout << "TODO remove strategy choice or handle it\n";
         if (strategy != ReduceStrategy::RECURSE)
             throw exceptions::NotImplementedError("launcher::reduce strategy != ReduceStrategy::RECURSE");
 
@@ -64,7 +62,7 @@ namespace launcher {
     template <
         Reductible                 T,
         Reductible                 Acc = T,
-        concepts::Reductor<T, Acc> F   = cuda_ops::Add<Acc, T>>
+        concepts::Reductor<T, Acc> F   = cuda_ops::Add2<Acc, T>>
     inline Acc
     reduce(
         dRawVecIn<T>   in,
@@ -83,6 +81,7 @@ namespace launcher {
         if (strategy == ReduceStrategy::RECURSE)
             return hBuffer[0]; // already accumulated
 
+        // TODO accumulate on CPU
         throw exceptions::NotImplementedError("launcher::reduce strategy != ReduceStrategy::RECURSE");
     }
 } // namespace launcher
