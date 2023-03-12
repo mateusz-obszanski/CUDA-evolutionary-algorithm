@@ -16,7 +16,7 @@ find_program(msvc_path msvc.exe)
 
 if(clangxx_path)
   message("Detected preferred compiler: clang++")
-  set(CMAKE_CUDA_HOST_COMPILER ${msvc_path})
+  set(CMAKE_CUDA_HOST_COMPILER ${clangxx_path})
   list(APPEND host_compiler_flags
     --compiler-bindir=clang++
     -Wall
@@ -40,7 +40,7 @@ elseif(msvc_path)
     -W3
   )
 else()
-  message("Unknown compiler")
+  message("Unknown host compiler: ${CMAKE_CUDA_HOST_COMPILER}")
 endif()
 
 # ninja instead of make
@@ -48,6 +48,8 @@ find_program(ninja_path ninja)
 if(ninja_path)
   message("Detected preferred build tool: Ninja")
   set(CMAKE_GENERATOR Ninja)
+else()
+  message("Detected build tool: ${CMAKE_GENERATOR}")
 endif()
 
 include_directories(
@@ -58,6 +60,16 @@ include_directories(
 link_directories(
   ${CUDA_LIBRARY_DIRS}
 )
+
+# control where the static and shared libraries are built so that on windows
+# we don't need to tinker with the path to run the executable
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+
+message("archive output directory: ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
+message("library output directory: ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+message("runtime output directory: ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 
 add_executable(EA src/EA.cu)
 # vvv for recursive kernel calls
