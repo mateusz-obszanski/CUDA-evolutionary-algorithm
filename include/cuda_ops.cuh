@@ -3,11 +3,11 @@
 #include "./concepts.hxx"
 
 #define _CUDA_OPS_DEFINE_ARITHMETIC_BINOP(NAME, CONCEPT, EXPRESSION) \
-    template <typename T, typename U = T, typename R = T>            \
-        requires CONCEPT<T, U, R>                                    \
+    template <typename R, typename T = R, typename U = T>            \
+        requires CONCEPT<R, T, U>                                    \
     class NAME {                                                     \
     public:                                                          \
-        constexpr __device__ R                                       \
+        constexpr __host__ __device__ R                              \
         operator()(T x, U y) const {                                 \
             return EXPRESSION;                                       \
         }                                                            \
@@ -20,8 +20,10 @@ namespace cuda_ops {
     _CUDA_OPS_DEFINE_ARITHMETIC_BINOP(Div2, concepts::Divisible, x / y)
 
     // template <template <typename RR, typename XX, typename... YYs> typename F, typename R, typename X = R, typename... Ys>
-    //     requires concepts::Fun<F<R, X, Ys...>, R, X, Ys...>
+    // // requires concepts::Function<F<R, X, Ys...>, R, X, Ys...> || concepts::Functor<F<R, X, Ys...>, R, X, Ys...>
     // struct Partial {
+    //     // template <template <typename RR, typename XX, typename... YYs> typename F, typename R, typename X, typename... Ys>
+    //     // struct Partial<F<R, X, Ys...>, R, X, Ys...> {
     // private:
     //     using _F = F<R, X, Ys...>;
 
@@ -32,14 +34,35 @@ namespace cuda_ops {
     //     Partial(_F f, X x) : f{f}, x{x} {}
     //     Partial(X x) : Partial(_F(), x) {}
 
-    //     constexpr __device__ R
-    //     operator()(Ys... ys...) {
+    //     constexpr __host__ __device__ R
+    //     operator()(Ys... ys) {
     //         return f(x, ys...);
     //     }
     // };
 
+    // template <template <typename RR, typename XX, typename YY> typename F, typename R, typename X, typename Y>
+    // // requires concepts::Function<F<R, X, Ys...>, R, X, Ys...> || concepts::Functor<F<R, X, Ys...>, R, X, Ys...>
+    // struct Partial<F, R, X, Y> {
+    //     // template <template <typename RR, typename XX, typename... YYs> typename F, typename R, typename X, typename... Ys>
+    //     // struct Partial<F<R, X, Ys...>, R, X, Ys...> {
+    // private:
+    //     using _F = F<R, X, Y>;
+
+    //     _F f;
+    //     X  x;
+
+    // public:
+    //     Partial(_F f, X x) : f{f}, x{x} {}
+    //     Partial(X x) : Partial(_F(), x) {}
+
+    //     constexpr __host__ __device__ R
+    //     operator()(Y y) {
+    //         return f(x, y);
+    //     }
+    // };
+
     template <typename F, typename R, typename X = R, typename Y = X, typename... Ys>
-        requires concepts::Fun<F, R, X, Y, Ys...>
+        requires concepts::Function<F, R, X, Y, Ys...>
     struct Partial {
     private:
         F f;
@@ -56,7 +79,7 @@ namespace cuda_ops {
     };
 
     template <typename F, typename R, typename X>
-        requires concepts::Fun<F, R, X>
+        requires concepts::Function<F, R, X>
     struct Partial<F, R, X, void> {
     private:
         F f;
@@ -82,7 +105,7 @@ namespace cuda_ops {
     public:
         Compose2(F1 f1, F2 f2) : f1{f1}, f2{f2} {}
 
-        constexpr __device__ R1
+        constexpr __host__ __device__ R1
         operator()(T2 x) {
             return f1(f2(x));
         }
@@ -97,7 +120,7 @@ namespace cuda_ops {
     public:
         Pipe2(const F1 f1, const F2 f2) : composed{f2, f1} {}
 
-        constexpr __device__ R2
+        constexpr __host__ __device__ R2
         operator()(T1 x) {
             return composed(x);
         }
@@ -110,7 +133,7 @@ namespace cuda_ops {
         P p;
 
     public:
-        constexpr __device__ bool
+        constexpr __host__ __device__ bool
         operator()(Ts... xs...) {
             return !static_cast<bool>(p(xs...));
         }

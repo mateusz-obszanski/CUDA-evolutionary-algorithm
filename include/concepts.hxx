@@ -5,7 +5,7 @@
 #include <string>
 
 #define _CONCEPTS_DEFINE_BINOP_CONCEPT(NAME, EXPRESSION)  \
-    template <typename T, typename U = T, typename R = T> \
+    template <typename R, typename T = R, typename U = T> \
     concept NAME = requires(T x, U y) {{EXPRESSION} -> std::convertible_to<R>; };
 
 namespace concepts {
@@ -18,10 +18,10 @@ namespace concepts {
     concept WeaklyComparable = requires(T x, U y) {{x < y} -> std::same_as<bool>; };
 
     template <typename F, typename R, typename... Ts>
-    concept Fun = std::is_invocable_r_v<R, F, Ts...>;
+    concept Function = std::is_invocable_r_v<R, F, Ts...>;
 
     template <typename F, typename X, typename Y = X>
-    concept MappingFn = Fun<F, Y, X>;
+    concept MappingFn = Function<F, Y, X>;
 
     template <typename F, typename X>
     concept Endomorphism = MappingFn<F, X, X>;
@@ -42,5 +42,5 @@ namespace concepts {
     concept Reductor = BinOp<F, Acc, T, Acc>;
 
     template <typename F, typename... Ts>
-    concept Predicate = Fun<F, bool, Ts...>;
+    concept Predicate = Function<F, bool, Ts...>;
 } // namespace concepts

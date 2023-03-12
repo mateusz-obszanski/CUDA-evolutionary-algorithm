@@ -58,20 +58,25 @@ deviceRaiiDemo() {
         raii::DeviceArr<float> dArr2copy = dArr2.copy<float>();
 
         // TODO fix type error
-        std::cout << "transform_inplace *2:\n"
-                  << "before: ";
+        std::cout
+            << "transform_inplace *2:\n"
+            << "before: ";
         dArr2copy.print();
         std::cout << "after: ";
-        // dArr2copy.transform_inplace(timesTwo<int>); // this results in CUDA invalid program counter error
+        // ! vvv this results in CUDA invalid program counter error
+        // dArr2copy.transform_inplace(timesTwo<int>);
         // always pass classes/structs with __device__ operator()
         dArr2copy.transform_inplace(TimesTwo<int>{});
         dArr2copy.print();
 
         std::cout << "transform: " << dArr2copy.transform(TimesTwo<int>{}).toString() << '\n';
-        // vvv not working
+        // ! vvv not working
         // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda([](const int x) -> int { return 2 * x; })).toString();
-        // vvv this works only with --extended-lambda NVCC compilation flag
+        // ! vvv not working
+        // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda<int, decltype(timesTwo<int>)>(timesTwo<int>)).toString();
+        // * vvv this works only with --extended-lambda NVCC compilation flag
         std::cout << "lambda transform: " << dArr2copy.transform([] __device__(const int x) -> int { return 2 * x; }).toString() << '\n';
+        // std::cout << "partial transform: " << dArr2copy.transform(cuda_ops::Partial<cuda_ops::Mul2, float>(2.0f)).toString() << '\n';
         std::cout << "partial transform: " << dArr2copy.transform(cuda_ops::Partial<cuda_ops::Mul2<float>, float>(2.0f)).toString() << '\n';
         std::cout << "sum 10 000 ones: " << raii::DeviceArr<std::size_t>::createOnes(10'000).reduce() << '\n';
     } catch (std::exception& e) {
