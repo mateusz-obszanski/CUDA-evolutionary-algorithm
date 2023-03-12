@@ -8,40 +8,22 @@
 #include "../kernels/functional.cuh"
 #include "../types.hxx"
 #include "./_utils.cuh"
+#include <numeric>
 
 namespace launcher {
     template <typename A, typename B, concepts::MappingFn<A, B> F>
     inline void
-    transform(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f) {
+    transform(
+        dRawVecOut<B> out,
+        dRawVecIn<A>  in,
+        culong        len,
+        F             f) {
+
         const auto nBlocks = utils::calcBlockNum1D(len);
 
         kernel::transform<<<nBlocks, utils::BLOCK_SIZE_1D>>>(out, in, len, f);
+
         cuda_utils::host::checkKernelLaunch("transform");
-    }
-
-    template <typename A, typename B, concepts::MappingFn<A, B> F>
-    inline void
-    transform(
-        dRawVecOut<B> out,
-        dRawVecIn<A>  in,
-        culong        len,
-        F             f,
-        culong        begin) {
-
-        transform(out + begin, in + begin, len - begin, f);
-    }
-
-    template <typename A, typename B, concepts::MappingFn<A, B> F>
-    inline void
-    transform(
-        dRawVecOut<B> out,
-        dRawVecIn<A>  in,
-        culong        len,
-        F             f,
-        culong        begin,
-        culong        end) {
-
-        transform(out + begin, in + begin, len - begin - end, f);
     }
 
     using kernel::ReduceStrategy;
@@ -59,12 +41,10 @@ namespace launcher {
         F               f        = F(),
         ReduceStrategy  strategy = ReduceStrategy::RECURSE) {
 
-        if (strategy != ReduceStrategy::RECURSE)
-            throw exceptions::NotImplementedError(
-                "launcher::reduce strategy != ReduceStrategy::RECURSE");
-
         const auto nBlocks = utils::calcBlockNum1D(len);
 
+        // if this results in error, check whether `dBuff` has enough memory
+        // allocated for `nBlocks` `Acc` instances
         kernel::reduce<T, Acc, F>
             <<<nBlocks, utils::BLOCK_SIZE_1D>>>(
                 dBuff, in, len, f, strategy);
@@ -85,7 +65,8 @@ namespace launcher {
 
         const auto nBlocks = utils::calcBlockNum1D(len);
 
-        utils::SimpleDeviceBuffer<Acc> buffer(nBlocks);
+        utils::SimpleDeviceBuffer<Acc> buffer(
+            strategy == ReduceStrategy::RECURSE ? 1 : nBlocks);
 
         launcher::reduce<T, Acc, F>(buffer.data(), in, len, f, strategy);
 
@@ -94,8 +75,6 @@ namespace launcher {
         if (strategy == ReduceStrategy::RECURSE)
             return hBuffer[0]; // already accumulated
 
-        // TODO accumulate on CPU
-        throw exceptions::NotImplementedError(
-            "launcher::reduce strategy != ReduceStrategy::RECURSE");
+        return std::accumulate(hBuffer.cbegin(), hBuffer.cend(), Acc());
     }
 } // namespace launcher

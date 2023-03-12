@@ -33,3 +33,16 @@
 ```bash
 find . -iname '*.cxx' -o -iname '*.hxx' -o -iname '*.cu' -o -iname '*.cuh' | xargs clang-format -i
 ```
+
+## Discussion points
+
+- CUDA Thrust library - why not use device_vector wrapped with 2D or 3D adapter?
+  - no option for cudaMalloc2D/3D and similar
+
+## Ideas
+
+- functional:
+  - `transformZip2` for crossover
+  - `transform` overload with `begin` and `end` pseudo-iterators as `swapRange` engine,
+    for swapping-crossover
+  - `swapRange` `__device__` function for iterative reuse for multiple swap ranges during crossover

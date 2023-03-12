@@ -29,3 +29,4 @@ __pycache__
 playground.*
 *.playground.*
 *.todo.*
+sketches/
