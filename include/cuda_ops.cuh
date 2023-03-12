@@ -19,10 +19,12 @@ namespace cuda_ops {
     _CUDA_OPS_DEFINE_ARITHMETIC_BINOP(Mul2, concepts::Multiplicable, x* y)
     _CUDA_OPS_DEFINE_ARITHMETIC_BINOP(Div2, concepts::Divisible, x / y)
 
-    // template <template <typename RR, typename XX, typename... YYs> typename F, typename R, typename X = R, typename... Ys>
-    // // requires concepts::Function<F<R, X, Ys...>, R, X, Ys...> || concepts::Functor<F<R, X, Ys...>, R, X, Ys...>
-    // struct Partial {
-    //     // template <template <typename RR, typename XX, typename... YYs> typename F, typename R, typename X, typename... Ys>
+    // template <template <typename RR, typename XX, typename... YYs> typename
+    // F, typename R, typename X = R, typename... Ys>
+    // // requires concepts::Function<F<R, X, Ys...>, R, X, Ys...> ||
+    // concepts::Functor<F<R, X, Ys...>, R, X, Ys...> struct Partial {
+    //     // template <template <typename RR, typename XX, typename... YYs>
+    //     typename F, typename R, typename X, typename... Ys>
     //     // struct Partial<F<R, X, Ys...>, R, X, Ys...> {
     // private:
     //     using _F = F<R, X, Ys...>;
@@ -40,10 +42,13 @@ namespace cuda_ops {
     //     }
     // };
 
-    // template <template <typename RR, typename XX, typename YY> typename F, typename R, typename X, typename Y>
-    // // requires concepts::Function<F<R, X, Ys...>, R, X, Ys...> || concepts::Functor<F<R, X, Ys...>, R, X, Ys...>
-    // struct Partial<F, R, X, Y> {
-    //     // template <template <typename RR, typename XX, typename... YYs> typename F, typename R, typename X, typename... Ys>
+    // template <template <typename RR, typename XX, typename YY> typename F,
+    // typename R, typename X, typename Y>
+    // // requires concepts::Function<F<R, X, Ys...>, R, X, Ys...> ||
+    // concepts::Functor<F<R, X, Ys...>, R, X, Ys...> struct Partial<F, R, X, Y>
+    // {
+    //     // template <template <typename RR, typename XX, typename... YYs>
+    //     typename F, typename R, typename X, typename... Ys>
     //     // struct Partial<F<R, X, Ys...>, R, X, Ys...> {
     // private:
     //     using _F = F<R, X, Y>;
@@ -61,7 +66,12 @@ namespace cuda_ops {
     //     }
     // };
 
-    template <typename F, typename R, typename X = R, typename Y = X, typename... Ys>
+    template <
+        typename F,
+        typename R,
+        typename X = R,
+        typename Y = X,
+        typename... Ys>
         requires concepts::Function<F, R, X, Y, Ys...>
     struct Partial {
     private:
@@ -70,6 +80,7 @@ namespace cuda_ops {
 
     public:
         Partial(F f, X x) : f(f), x(x) {}
+
         Partial(X x) : Partial(F(), x) {}
 
         constexpr __device__ R
@@ -95,8 +106,15 @@ namespace cuda_ops {
         }
     };
 
-    template <typename F1, typename F2, typename T1, typename R1 = T1, typename T2 = T1, typename R2 = T2>
-        requires concepts::MappingFn<F1, T1, R1> and concepts::MappingFn<F2, T2, R2> and std::convertible_to<R2, T1>
+    template <
+        typename F1,
+        typename F2,
+        typename T1,
+        typename R1 = T1,
+        typename T2 = T1,
+        typename R2 = T2>
+        requires concepts::MappingFn<F1, T1, R1> and
+                 concepts::MappingFn<F2, T2, R2> and std::convertible_to<R2, T1>
     struct Compose2 {
     private:
         F1 f1;
@@ -111,8 +129,15 @@ namespace cuda_ops {
         }
     };
 
-    template <typename F1, typename F2, typename T1, typename R1 = T1, typename T2 = R1, typename R2 = T2>
-        requires concepts::MappingFn<F1, T1, R1> and concepts::MappingFn<F2, T2, R2> and std::convertible_to<R1, T2>
+    template <
+        typename F1,
+        typename F2,
+        typename T1,
+        typename R1 = T1,
+        typename T2 = R1,
+        typename R2 = T2>
+        requires concepts::MappingFn<F1, T1, R1> and
+                 concepts::MappingFn<F2, T2, R2> and std::convertible_to<R1, T2>
     struct Pipe2 {
     private:
         Compose2<F2, F1, T2, R2, T1, R1> composed;

@@ -16,8 +16,12 @@ namespace launcher {
             return cuda_utils::divCeil<std::size_t>(nElems, BLOCK_SIZE_1D);
         }
 
-        DEFINE_CUDA_ERROR(SimpleDeviceBufferAllocError, "Could not allocate memory on device")
-        DEFINE_CUDA_ERROR(SimpleDeviceBufferToHostError, "Could copy data from device to host")
+        DEFINE_CUDA_ERROR(
+            SimpleDeviceBufferAllocError,
+            "Could not allocate memory on device")
+        DEFINE_CUDA_ERROR(
+            SimpleDeviceBufferToHostError,
+            "Could copy data from device to host")
 
         /// @brief Simple RAII buffer
         template <std::default_initializable T>
@@ -28,7 +32,9 @@ namespace launcher {
             const std::size_t sizeBytes;
 
         public:
-            SimpleDeviceBuffer(const std::size_t size, const size_t elemBytes = sizeof(T))
+            SimpleDeviceBuffer(
+                const std::size_t size,
+                const size_t      elemBytes = sizeof(T))
             : size{size}, sizeBytes{size * elemBytes} {
                 const auto status = cudaMalloc<T>(&mpData, sizeBytes);
 
@@ -36,7 +42,8 @@ namespace launcher {
             }
             ~SimpleDeviceBuffer() {
                 if (const auto err = cudaFree(mpData))
-                    std::cerr << "\nCould not free SimpleDeviceBuffer device data!\n";
+                    std::cerr
+                        << "\nCould not free SimpleDeviceBuffer device data!\n";
             }
 
             T*
@@ -47,7 +54,10 @@ namespace launcher {
             std::vector<T>
             toHost() const {
                 std::vector<T> hBuffer(size);
-                const auto     status = cudaMemcpy(hBuffer.data(), mpData, sizeBytes, cudaMemcpyDeviceToHost);
+
+                const auto status = cudaMemcpy(
+                    hBuffer.data(), mpData, sizeBytes, cudaMemcpyDeviceToHost);
+
                 SimpleDeviceBufferToHostError::check(status);
 
                 return hBuffer;

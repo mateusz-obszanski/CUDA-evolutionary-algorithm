@@ -8,9 +8,11 @@
 
 namespace kernel {
     enum class GridDimensionality {
-        D1,
-        D2,
-        D3
+        NONE    = 0,
+        D1      = 1,
+        D2      = 2,
+        D3      = 3,
+        UNKNOWN = D3, // D3 will work with every dimension, so it is a safe fallback
     };
 
     namespace {
@@ -88,8 +90,9 @@ namespace kernel {
     template <
         typename A,
         typename B = A,
-        concepts::MappingFn<A, B> F, concepts::Predicate<A> P,
-        GridDimensionality Dims = GridDimensionality::D1>
+        concepts::MappingFn<A, B> F,
+        concepts::Predicate<A>    P,
+        GridDimensionality        Dims = GridDimensionality::D1>
     __global__ void
     transform_if_not(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f, P p) {
         const auto idx = calcLinearizedIndex<Dims>();
@@ -141,7 +144,8 @@ namespace kernel {
     concept Reductible = std::is_default_constructible_v<T>;
 
     /// @brief Reduction along `x` (most nested) dimension
-    /// @param buffOut length: gridDim.z * gridDim.y * (gridDim.x === no. of blocks)
+    /// @param buffOut length: gridDim.z * gridDim.y * (gridDim.x === no. of
+    /// blocks)
     template <
         Reductible                 T,
         Reductible                 Acc  = T,
@@ -160,11 +164,15 @@ namespace kernel {
         const auto idx = calcLinearizedIndex<Dims>();
 
         // load to shared buffer
-        T zero();
+        // treat default T value as 0
         s_buff[threadIdx.x] = idx < len ? in[idx] : T();
 
         // reduce shared buffer
-        for (ulong nActiveThreads{blockDim.x >> 1}; nActiveThreads > 0; nActiveThreads >>= 1) {
+        for (
+            ulong nActiveThreads{blockDim.x >> 1};
+            nActiveThreads > 0;
+            nActiveThreads >>= 1) {
+
             __syncthreads();
 
             if (threadIdx.x >= nActiveThreads)
@@ -190,8 +198,8 @@ namespace kernel {
             // recursion requires CUDA separate compilation (cmake target
             // property CUDA_SEPARABLE_COMPILATION ON)
 
-            // after one pass, `gridDim.x` values along X axis are left to reduce
-            // (1 from each block along X axis)
+            // after one pass, `gridDim.x` values along X axis are left to
+            // reduce (1 from each block along X axis)
             __syncthreads();
             reduce<T, Acc, F, Dims>
                 <<<gridDim.x, REDUCE_THREAD_N>>>(

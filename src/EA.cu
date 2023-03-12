@@ -69,16 +69,39 @@ deviceRaiiDemo() {
         dArr2copy.transform_inplace(TimesTwo<int>{});
         dArr2copy.print();
 
-        std::cout << "transform: " << dArr2copy.transform(TimesTwo<int>{}).toString() << '\n';
+        std::cout
+            << "transform: "
+            << dArr2copy.transform(TimesTwo<int>{}).toString() << '\n';
         // ! vvv not working
-        // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda([](const int x) -> int { return 2 * x; })).toString();
-        // ! vvv not working
-        // std::cout << "lambda transform: " << dArr2.transform(DeviceLambda<int, decltype(timesTwo<int>)>(timesTwo<int>)).toString();
+        // std::cout << "lambda transform: " <<
+        // dArr2.transform(DeviceLambda([](const int x) -> int { return 2 * x;
+        // })).toString(); ! vvv not working std::cout << "lambda transform: "
+        // << dArr2.transform(DeviceLambda<int,
+        // decltype(timesTwo<int>)>(timesTwo<int>)).toString();
         // * vvv this works only with --extended-lambda NVCC compilation flag
-        std::cout << "lambda transform: " << dArr2copy.transform([] __device__(const int x) -> int { return 2 * x; }).toString() << '\n';
-        // std::cout << "partial transform: " << dArr2copy.transform(cuda_ops::Partial<cuda_ops::Mul2, float>(2.0f)).toString() << '\n';
-        std::cout << "partial transform: " << dArr2copy.transform(cuda_ops::Partial<cuda_ops::Mul2<float>, float>(2.0f)).toString() << '\n';
-        std::cout << "sum 10 000 ones: " << raii::DeviceArr<std::size_t>::createOnes(10'000).reduce() << '\n';
+        std::cout
+            << "lambda transform: "
+            << dArr2copy
+                   .transform([] __device__(const int x) -> int {
+                       return 2 * x;
+                   })
+                   .toString()
+            << '\n';
+        // std::cout << "partial transform: " <<
+        // dArr2copy.transform(cuda_ops::Partial<cuda_ops::Mul2,
+        // float>(2.0f)).toString() << '\n';
+        std::cout
+            << "partial transform: "
+            << dArr2copy
+                   .transform(
+                       cuda_ops::Partial<cuda_ops::Mul2<float>, float>(
+                           2.0f))
+                   .toString()
+            << '\n';
+        std::cout
+            << "sum 10 000 ones: "
+            << raii::DeviceArr<std::size_t>::createOnes(10'000).reduce()
+            << '\n';
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         exit(1);

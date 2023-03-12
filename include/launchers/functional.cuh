@@ -22,7 +22,11 @@ namespace launcher {
     template <typename A, typename B, concepts::MappingFn<A, B> F>
     inline void
     transform(
-        dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f, culong begin) {
+        dRawVecOut<B> out,
+        dRawVecIn<A>  in,
+        culong        len,
+        F             f,
+        culong        begin) {
 
         transform(out + begin, in + begin, len - begin, f);
     }
@@ -30,7 +34,12 @@ namespace launcher {
     template <typename A, typename B, concepts::MappingFn<A, B> F>
     inline void
     transform(
-        dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f, culong begin, culong end) {
+        dRawVecOut<B> out,
+        dRawVecIn<A>  in,
+        culong        len,
+        F             f,
+        culong        begin,
+        culong        end) {
 
         transform(out + begin, in + begin, len - begin - end, f);
     }
@@ -51,11 +60,15 @@ namespace launcher {
         ReduceStrategy  strategy = ReduceStrategy::RECURSE) {
 
         if (strategy != ReduceStrategy::RECURSE)
-            throw exceptions::NotImplementedError("launcher::reduce strategy != ReduceStrategy::RECURSE");
+            throw exceptions::NotImplementedError(
+                "launcher::reduce strategy != ReduceStrategy::RECURSE");
 
         const auto nBlocks = utils::calcBlockNum1D(len);
 
-        kernel::reduce<T, Acc, F><<<nBlocks, utils::BLOCK_SIZE_1D>>>(dBuff, in, len, f, strategy);
+        kernel::reduce<T, Acc, F>
+            <<<nBlocks, utils::BLOCK_SIZE_1D>>>(
+                dBuff, in, len, f, strategy);
+
         cuda_utils::host::checkKernelLaunch("reduce");
     }
 
@@ -82,6 +95,7 @@ namespace launcher {
             return hBuffer[0]; // already accumulated
 
         // TODO accumulate on CPU
-        throw exceptions::NotImplementedError("launcher::reduce strategy != ReduceStrategy::RECURSE");
+        throw exceptions::NotImplementedError(
+            "launcher::reduce strategy != ReduceStrategy::RECURSE");
     }
 } // namespace launcher

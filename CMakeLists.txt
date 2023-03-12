@@ -79,11 +79,10 @@ target_compile_features(EA PUBLIC cxx_std_20)
 
 target_compile_options(
   EA PRIVATE
-  # --verbose
   # CUDA compiler flags
-  --forward-unknown-opts
-  -Xptxas
+  # --verbose
   -O3
+  --forward-unknown-opts
   --extended-lambda
   ${host_compiler_flags}
 )

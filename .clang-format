@@ -8,6 +8,8 @@ ConstructorInitializerIndentWidth: 0
 NamespaceIndentation: All
 ColumnLimit: 0
 BreakBeforeBraces: Attach
+BreakConstructorInitializers: BeforeColon
+# PackConstructorInitializers: NextLine
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignConsecutiveMacros: true

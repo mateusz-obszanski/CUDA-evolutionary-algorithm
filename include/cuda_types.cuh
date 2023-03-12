@@ -18,9 +18,13 @@ public:
     T            data[];
 
     __device__ T
-    operator[](const size_t i) const { return data[i]; }
+    operator[](const size_t i) const {
+        return data[i];
+    }
     __device__ T&
-    operator[](const size_t i) { return data[i]; }
+    operator[](const size_t i) {
+        return data[i];
+    }
 
     __host__
     dVec() = delete;

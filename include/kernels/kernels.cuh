@@ -17,7 +17,11 @@ namespace kernel {
 
     template <typename SrcT, concepts::ConstructibleButDifferent<SrcT> DestT>
     __global__ void
-    copy(dRawVecOut<DestT> dest, dRawVecIn<SrcT> src, const std::size_t nElems) {
+    copy(
+        dRawVecOut<DestT> dest,
+        dRawVecIn<SrcT>   src,
+        const std::size_t nElems) {
+
         const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
 
         if (idx >= nElems)
@@ -27,11 +31,17 @@ namespace kernel {
     }
 
     template <typename T>
-    concept CountingAble = concepts::Addable<T> && concepts::Multiplicable<T> && std::constructible_from<T, unsigned int>;
+    concept CountingAble = concepts::Addable<T> && concepts::Multiplicable<T> &&
+                           std::constructible_from<T, unsigned int>;
 
     template <CountingAble T>
     inline void
-    counting(dRawVecOut<T> out, const std::size_t nElems, const T start, const T step) {
+    counting(
+        dRawVecOut<T>     out,
+        const std::size_t nElems,
+        const T           start,
+        const T           step) {
+
         const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
 
         if (idx >= nElems)

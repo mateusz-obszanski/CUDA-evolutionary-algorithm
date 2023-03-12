@@ -110,7 +110,8 @@ namespace raii {
     };
 
     template <typename T>
-    DeviceMemoryLifetimeManager<T>::DeviceMemoryLifetimeManager(const DeviceMemoryLifetimeManager<T>& other)
+    DeviceMemoryLifetimeManager<T>::DeviceMemoryLifetimeManager(
+        const DeviceMemoryLifetimeManager<T>& other)
     : DeviceMemoryLifetimeManager{other.mSize} {}
 
     /// @brief Assumes that pData has already been allocated on a device
@@ -123,7 +124,8 @@ namespace raii {
     : mSize{size}, mpData{std::move(pData)} {}
 
     template <typename T>
-    inline DeviceMemoryLifetimeManager<T>::DeviceMemoryLifetimeManager(const size_t size)
+    inline DeviceMemoryLifetimeManager<T>::DeviceMemoryLifetimeManager(
+        const size_t size)
     : mSize{size}, mpData{mAllocator.allocate(sizeBytes())} {}
 
     template <typename T>
@@ -134,13 +136,15 @@ namespace raii {
         } catch (const DeviceFreeError&) {
             std::cerr << "\nERROR: could not deallocate device memory\n";
         } catch (...) {
-            std::cerr << "\nUNKNOWN ERROR: could not deallocate device memory\n";
+            std::cerr
+                << "\nUNKNOWN ERROR: could not deallocate device memory\n";
         }
     }
 
     template <typename T>
     template <typename U>
-    inline U* DeviceMemoryLifetimeManager<T>::template data<U>() const noexcept {
+    inline U*
+        DeviceMemoryLifetimeManager<T>::template data<U>() const noexcept {
         return mpData;
     }
 
@@ -161,7 +165,12 @@ namespace raii {
     // for fancy counter counstructors
     template <typename T>
     concept DeviceArrValue =
-        std::default_initializable<T> && concepts::Addable<T> && concepts::Subtractable<T> && std::convertible_to<T, std::size_t> && concepts::WeaklyComparable<T> && launcher::CountingAble<T>;
+        std::default_initializable<T> and
+        concepts::Addable<T> and
+        concepts::Subtractable<T> and
+        std::convertible_to<T, std::size_t> and
+        concepts::WeaklyComparable<T> and
+        launcher::CountingAble<T>;
 
     template <DeviceArrValue T>
     class DeviceArr {
@@ -221,8 +230,11 @@ namespace raii {
         // Host <-> device
         std::string
         toString() const;
+
         void
-        print(const std::string& end = "\n", std::ostream& out = std::cout) const;
+        print(
+            const std::string& end = "\n",
+            std::ostream&      out = std::cout) const;
 
         template <typename Alloc = std::pmr::polymorphic_allocator<T>>
         inline std::vector<T, Alloc>
@@ -271,7 +283,9 @@ namespace raii {
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const DeviceArr<T>& other)
-    : DeviceArr(other.size()) { std::cout << "copy array!\n"; }
+    : DeviceArr(other.size()) {
+        std::cout << "copy array!\n";
+    }
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(DeviceArr<T>&& other) {
@@ -279,14 +293,17 @@ namespace raii {
     }
 
     template <DeviceArrValue T>
-    inline DeviceArr<T>::DeviceArr(std::unique_ptr<DeviceMemoryLifetimeManager<T>>&& pMemMgr)
+    inline DeviceArr<T>::DeviceArr(
+        std::unique_ptr<DeviceMemoryLifetimeManager<T>>&& pMemMgr)
     : mpMemMgr{std::move(pMemMgr)} {}
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const std::size_t size)
     : DeviceArr::DeviceArr(size, T{}) {}
 
-    DEFINE_CUDA_ERROR(DeviceArrFillError, "Could not fill memory with initial value")
+    DEFINE_CUDA_ERROR(
+        DeviceArrFillError,
+        "Could not fill memory with initial value")
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const std::size_t size, const T fillval)
@@ -298,7 +315,9 @@ namespace raii {
     inline DeviceArr<T>::DeviceArr(const std::size_t size, const T* const fillval)
     : DeviceArr(size, *fillval) {}
 
-    DEFINE_CUDA_ERROR(DeviceArrToDeviceError, "Could not copy memory from host to device")
+    DEFINE_CUDA_ERROR(
+        DeviceArrToDeviceError,
+        "Could not copy memory from host to device")
 
     template <DeviceArrValue T>
     inline DeviceArr<T>::DeviceArr(const T* const arr, const std::size_t size)
@@ -346,7 +365,9 @@ namespace raii {
         return mpMemMgr->data();
     }
 
-    DEFINE_CUDA_ERROR(DeviceArrCopyError, "Could not copy memory from device to device")
+    DEFINE_CUDA_ERROR(
+        DeviceArrCopyError,
+        "Could not copy memory from device to device")
 
     template <DeviceArrValue T>
     template <DeviceArrValue U>
@@ -356,13 +377,15 @@ namespace raii {
         try {
             launcher::copy(newArr.data(), data(), size());
         } catch (const launcher::DeviceCopyError& e) {
-            DeviceArrCopyError::check(e.err);
+            DeviceArrCopyError::check(e.errCode);
         }
 
         return newArr;
     }
 
-    DEFINE_CUDA_ERROR(DeviceArrToHostError, "Could not copy memory from device to host")
+    DEFINE_CUDA_ERROR(
+        DeviceArrToHostError,
+        "Could not copy memory from device to host")
 
     template <DeviceArrValue T>
     inline void
@@ -370,8 +393,8 @@ namespace raii {
         try {
             launcher::fill(mpMemMgr->data(), size(), fillval);
             cuda_utils::host::checkKernelLaunch("");
-        } catch (const cuda_utils::host::CudaKernelLaunchError& e) {
-            throw DeviceArrFillError(e.err);
+        } catch (const cuda_utils::host::DeviceKernelLaunchError& e) {
+            throw DeviceArrFillError(e.errCode);
         }
     }
 
@@ -397,7 +420,8 @@ namespace raii {
     template <launcher::Reductible Acc, concepts::Reductor<T, Acc> F>
     inline Acc
     DeviceArr<T>::reduce(F f) const {
-        return launcher::reduce(data(), size(), f, launcher::ReduceStrategy::RECURSE);
+        return launcher::reduce(
+            data(), size(), f, launcher::ReduceStrategy::RECURSE);
     }
 
     template <DeviceArrValue T>
@@ -484,12 +508,13 @@ namespace raii {
 
     template <DeviceArrValue T>
     inline DeviceArr<T>
-    DeviceArr<T>::createCount(
-        const T start, const T stop, const T step) {
+    DeviceArr<T>::createCount(const T start, const T stop, const T step) {
 
-        const auto        delta  = (start < stop) ? (stop - start) : (start - stop);
-        const std::size_t nElems = static_cast<std::size_t>(delta) / static_cast<std::size_t>(step);
-        DeviceArr<T>      counted(nElems);
+        const auto        delta = (start < stop) ? (stop - start) : (start - stop);
+        const std::size_t nElems =
+            static_cast<std::size_t>(delta) / static_cast<std::size_t>(step);
+
+        DeviceArr<T> counted(nElems);
 
         launcher::counting(counted.data(), start, stop, step);
     }
