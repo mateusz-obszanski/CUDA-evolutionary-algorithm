@@ -30,7 +30,7 @@ namespace raii {
 
         private:
             [[nodiscard]] DeviceMemoryLife();
-            [[nodiscard]] DeviceMemoryLife(size_type size, pointer&& pData);
+            [[nodiscard]] DeviceMemoryLife(pointer&& pData, size_type size);
 
         protected:
             const size_type mSize  = 0;
@@ -50,7 +50,7 @@ namespace raii {
         /// @param pData
         template <typename T, typename Allocator>
         inline DeviceMemoryLife<T, Allocator>::DeviceMemoryLife(
-            const size_type size, pointer&& pData)
+            pointer&& pData, const size_type size)
         : mSize(size), mpData(std::move(pData)) {}
 
         template <typename T, typename Allocator>

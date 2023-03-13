@@ -131,6 +131,9 @@ namespace raii {
         toHost() const;
 
         // Static methods
+        [[nodiscard]] inline static DeviceArr
+        fromDevicePtr(device_ptr<T>&&, size_type);
+
         template <std::size_t N>
         [[nodiscard]] inline static DeviceArr
         fromArray(const std::array<T, N>& arr);
@@ -202,8 +205,9 @@ namespace raii {
         typename AllocatorTemplate,
 
         typename... AllocatorParams>
-    inline DeviceArr<T, AllocatorTemplate, AllocatorParams...>::DeviceArr(const size_type size)
-    : DeviceArr::DeviceArr(size, T{}) {}
+    inline DeviceArr<T, AllocatorTemplate, AllocatorParams...>::DeviceArr(
+        const size_type size)
+    : DeviceArr::DeviceArr(size, T()) {}
 
     DEFINE_CUDA_ERROR(
         DeviceArrFillError,
@@ -242,7 +246,7 @@ namespace raii {
         typename AllocatorTemplate,
 
         typename... AllocatorParams>
-    inline DeviceArr<T, AllocatorTemplate, AllocatorParams...>::DeviceArr(const device_ptr<T> arr, const size_type size)
+    inline DeviceArr<T, AllocatorTemplate, AllocatorParams...>::DeviceArr(const host_ptr<T> arr, const size_type size)
     : DeviceArr(size) {
         const auto status = cudaMemcpy(
             mpMemLife->data(), arr, sizeBytes(), cudaMemcpyHostToDevice);
@@ -461,6 +465,22 @@ namespace raii {
         DeviceArrToHostError::check(status);
 
         return hostVec;
+    }
+
+    template <
+        DeviceArrValue T,
+
+        template <typename TT, typename... PP>
+        typename AllocatorTemplate,
+
+        typename... AllocatorParams>
+    inline DeviceArr<T, AllocatorTemplate, AllocatorParams...>
+    DeviceArr<T, AllocatorTemplate, AllocatorParams...>::fromDevicePtr(
+        device_ptr<T>&& dp, size_type size) {
+
+        const auto newMemLife = std::make_unique<mem_life_t>(dp, size);
+
+        return DeviceArr(std::move(newMemLife));
     }
 
     template <
