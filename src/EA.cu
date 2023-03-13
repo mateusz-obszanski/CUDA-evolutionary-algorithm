@@ -1,4 +1,4 @@
-#include "cuda_raii.cuh"
+#include "raii/raii.cuh"
 #include "utils/text.hxx"
 #include <array>
 #include <iostream>

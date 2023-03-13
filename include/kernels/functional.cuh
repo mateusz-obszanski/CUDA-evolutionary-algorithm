@@ -3,71 +3,12 @@
 #include "../concepts.hxx"
 #include "../cuda_ops.cuh"
 #include "../cuda_types.cuh"
+#include "../device_common.cuh"
 #include "../types.hxx"
 #include <concepts>
 
 namespace kernel {
-    enum class GridDimensionality {
-        NONE    = 0,
-        D1      = 1,
-        D2      = 2,
-        D3      = 3,
-        UNKNOWN = D3, // D3 will work with every dimension, so it is a safe fallback
-    };
-
-    namespace {
-        constexpr __device__ auto
-        calcOffsetX() {
-            return blockIdx.x * blockDim.x + threadIdx.x;
-        }
-
-        constexpr __device__ auto
-        calcOffsetY() {
-            return blockIdx.y * blockDim.y + threadIdx.y;
-        }
-
-        constexpr __device__ auto
-        calcOffsetZ() {
-            return blockIdx.z * blockDim.z + threadIdx.z;
-        }
-
-        constexpr __device__ auto
-        calcThreadNumAlongX() {
-            return gridDim.x * blockDim.x;
-        }
-
-        constexpr __device__ auto
-        calcThreadNumAlongY() {
-            return gridDim.y * blockDim.y;
-        }
-
-        constexpr __device__ auto
-        calcThreadNumXY() {
-            return calcThreadNumAlongX() * calcThreadNumAlongY();
-        }
-
-        template <GridDimensionality>
-        __device__ constexpr auto
-        calcLinearizedIndex();
-
-        template <>
-        __device__ constexpr auto
-        calcLinearizedIndex<GridDimensionality::D1>() {
-            return calcOffsetX();
-        }
-
-        template <>
-        __device__ constexpr auto
-        calcLinearizedIndex<GridDimensionality::D2>() {
-            return calcOffsetY() * calcThreadNumAlongX() + calcLinearizedIndex<GridDimensionality::D1>();
-        }
-
-        template <>
-        __device__ constexpr auto
-        calcLinearizedIndex<GridDimensionality::D3>() {
-            return calcOffsetZ() * calcThreadNumXY() + calcLinearizedIndex<GridDimensionality::D2>();
-        }
-    } // namespace
+    using typename device::common::GridDimensionality;
 
     template <
         typename A,
@@ -78,8 +19,8 @@ namespace kernel {
     /// - grid: ceil(width / FUNCTIONAL_THREADS_IN_BLOCK) x 1 x 1
     /// - block: FUNCTIONAL_THREADS_IN_BLOCK x 1 x 1
     __global__ void
-    transform(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f) {
-        const auto idx = calcLinearizedIndex<Dims>();
+    transform(device_ptr_out<B> out, device_ptr_in<A> in, culong len, F f) {
+        const auto idx = device::common::calcLinearizedIndex<Dims>();
 
         if (idx >= len)
             return;
@@ -94,8 +35,8 @@ namespace kernel {
         concepts::Predicate<A>    P,
         GridDimensionality        Dims = GridDimensionality::D1>
     __global__ void
-    transform_if_not(dRawVecOut<B> out, dRawVecIn<A> in, culong len, F f, P p) {
-        const auto idx = calcLinearizedIndex<Dims>();
+    transform_if_not(device_ptr_out<B> out, device_ptr_in<A> in, culong len, F f, P p) {
+        const auto idx = device::common::calcLinearizedIndex<Dims>();
 
         if (idx >= len)
             return;
@@ -153,15 +94,15 @@ namespace kernel {
         GridDimensionality         Dims = GridDimensionality::D1>
     __global__ void
     reduce(
-        dRawVecOut<Acc> buffOut,
-        dRawVecIn<T>    in,
-        culong          len,
-        F               f        = cuda_ops::Add2<Acc, T>(),
-        ReduceStrategy  strategy = ReduceStrategy::RECURSE) {
+        device_ptr_out<Acc> buffOut,
+        device_ptr_in<T>    in,
+        culong              len,
+        F                   f        = cuda_ops::Add2<Acc, T>(),
+        ReduceStrategy      strategy = ReduceStrategy::RECURSE) {
 
         __shared__ Acc s_buff[REDUCE_BUFF_LENGTH];
 
-        const auto idx = calcLinearizedIndex<Dims>();
+        const auto idx = device::common::calcLinearizedIndex<Dims>();
 
         // load to shared buffer
         // treat default T value as 0
@@ -201,6 +142,7 @@ namespace kernel {
             // after one pass, `gridDim.x` values along X axis are left to
             // reduce (1 from each block along X axis)
             __syncthreads();
+
             reduce<T, Acc, F, Dims>
                 <<<gridDim.x, REDUCE_THREAD_N>>>(
                     buffOut, buffOut, gridDim.x, f, strategy);

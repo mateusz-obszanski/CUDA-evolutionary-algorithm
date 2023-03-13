@@ -43,7 +43,7 @@ namespace launcher {
     template <typename T>
     inline void
     fill(
-        dRawVecOut<T>     arr,
+        device_ptr_out<T> arr,
         const std::size_t nElems,
         const T           fillval,
         FillMode          mode = FillMode::ALLOW_MEMSET_SHORT_OR_ZERO) {
@@ -69,7 +69,7 @@ namespace launcher {
     template <typename T>
     inline void
     fill(
-        dRawVecOut<T>     arr,
+        device_ptr_out<T> arr,
         const std::size_t nElems,
         const T           fillval,
         const std::size_t begin,
@@ -81,7 +81,7 @@ namespace launcher {
     template <typename T>
     inline void
     fill(
-        dRawVecOut<T>     arr,
+        device_ptr_out<T> arr,
         const std::size_t nElems,
         const T           fillval,
         const std::size_t begin,
@@ -98,9 +98,9 @@ namespace launcher {
     template <typename T>
     inline void
     copy(
-        dRawVecOut<T> dest,
-        dRawVecIn<T>  src,
-        std::size_t   nElems) {
+        device_ptr_out<T> dest,
+        device_ptr_in<T>  src,
+        std::size_t       nElems) {
 
         const auto status = cudaMemcpy(
             dest, src, sizeof(T) * nElems, cudaMemcpyDeviceToDevice);
@@ -110,7 +110,7 @@ namespace launcher {
 
     template <typename SrcT, concepts::ConstructibleButDifferent<SrcT> DestT>
     inline void
-    copy(dRawVecOut<DestT> dest, dRawVecIn<SrcT> src, std::size_t nElems) {
+    copy(device_ptr_out<DestT> dest, device_ptr_in<SrcT> src, std::size_t nElems) {
         const auto nBlocks = utils::calcBlockNum1D(nElems);
 
         kernel::copy<<<nBlocks, utils::BLOCK_SIZE_1D>>>(dest, src, nElems);
@@ -124,7 +124,7 @@ namespace launcher {
     // TODO launcher/kernel counting
     template <CountingAble T>
     inline void
-    counting(dRawVecOut<T> out, const std::size_t nElems, const T start, const T step) {
+    counting(device_ptr_out<T> out, const std::size_t nElems, const T start, const T step) {
         const auto nBlocks = utils::calcBlockNum1D(nElems);
 
         kernel::counting<<<nBlocks, utils::BLOCK_SIZE_1D>>>(

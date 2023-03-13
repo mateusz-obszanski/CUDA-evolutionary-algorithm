@@ -14,10 +14,10 @@ namespace launcher {
     template <typename A, typename B, concepts::MappingFn<A, B> F>
     inline void
     transform(
-        dRawVecOut<B> out,
-        dRawVecIn<A>  in,
-        culong        len,
-        F             f) {
+        device_ptr_out<B> out,
+        device_ptr_in<A>  in,
+        culong            len,
+        F                 f) {
 
         const auto nBlocks = utils::calcBlockNum1D(len);
 
@@ -35,11 +35,11 @@ namespace launcher {
         concepts::Reductor<T, Acc> F   = cuda_ops::Add2<Acc, T>>
     inline void
     reduce(
-        dRawVecOut<Acc> dBuff,
-        dRawVecIn<T>    in,
-        culong          len,
-        F               f        = F(),
-        ReduceStrategy  strategy = ReduceStrategy::RECURSE) {
+        device_ptr_out<Acc> dBuff,
+        device_ptr_in<T>    in,
+        culong              len,
+        F                   f        = F(),
+        ReduceStrategy      strategy = ReduceStrategy::RECURSE) {
 
         const auto nBlocks = utils::calcBlockNum1D(len);
 
@@ -58,10 +58,10 @@ namespace launcher {
         concepts::Reductor<T, Acc> F   = cuda_ops::Add2<Acc, T>>
     inline Acc
     reduce(
-        dRawVecIn<T>   in,
-        culong         len,
-        F              f        = F(),
-        ReduceStrategy strategy = ReduceStrategy::RECURSE) {
+        device_ptr_in<T> in,
+        culong           len,
+        F                f        = F(),
+        ReduceStrategy   strategy = ReduceStrategy::RECURSE) {
 
         const auto nBlocks = utils::calcBlockNum1D(len);
 

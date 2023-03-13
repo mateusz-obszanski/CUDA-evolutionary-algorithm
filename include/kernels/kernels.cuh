@@ -6,7 +6,7 @@
 namespace kernel {
     template <typename T>
     __global__ void
-    fill(dRawVecOut<T> arr, const std::size_t nElems, const T fillval) {
+    fill(device_ptr_out<T> arr, const std::size_t nElems, const T fillval) {
         const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
 
         if (idx >= nElems)
@@ -18,9 +18,9 @@ namespace kernel {
     template <typename SrcT, concepts::ConstructibleButDifferent<SrcT> DestT>
     __global__ void
     copy(
-        dRawVecOut<DestT> dest,
-        dRawVecIn<SrcT>   src,
-        const std::size_t nElems) {
+        device_ptr_out<DestT> dest,
+        device_ptr_in<SrcT>   src,
+        const std::size_t     nElems) {
 
         const auto idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -37,7 +37,7 @@ namespace kernel {
     template <CountingAble T>
     inline void
     counting(
-        dRawVecOut<T>     out,
+        device_ptr_out<T> out,
         const std::size_t nElems,
         const T           start,
         const T           step) {
