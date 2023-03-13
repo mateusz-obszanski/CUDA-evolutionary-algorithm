@@ -61,16 +61,14 @@ namespace raii {
             deallocate(cls::pointer p);
         };
 
-        // template <typename>
-        // concept IsDeviceAllocator = true;
+        template <
+            template <typename EE, typename... Params>
+            typename Allocator,
 
-        // template <typename A>
-        // concept IsDeviceAllocator =
-        //     requires(A a) {
-        //         // IILE, that only binds to A<...> specialisations
-        //         // Including classes derived from them
-        //         []<typename X>(BaseDeviceAllocator<X>&) {}(a);
-        //     };
+            typename ElemT,
+            GridDimensionality Dims,
+            typename... P>
+        concept IsAllocatorTemplate = std::same_as<Allocator<ElemT, P...>, DeviceAllocator<ElemT, Dims>>;
 
         template <typename T>
         inline DeviceAllocatorD1<T>::pointer

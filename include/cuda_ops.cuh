@@ -7,7 +7,7 @@
         requires CONCEPT<R, T, U>                                    \
     class NAME {                                                     \
     public:                                                          \
-        constexpr __host__ __device__ R                              \
+        [[nodiscard]] constexpr __host__ __device__ R                \
         operator()(T x, U y) const {                                 \
             return EXPRESSION;                                       \
         }                                                            \
@@ -79,11 +79,11 @@ namespace cuda_ops {
         X x;
 
     public:
-        Partial(F f, X x) : f(f), x(x) {}
+        [[nodiscard]] Partial(F f, X x) : f(f), x(x) {}
 
-        Partial(X x) : Partial(F(), x) {}
+        [[nodiscard]] Partial(X x) : Partial(F(), x) {}
 
-        constexpr __device__ R
+        [[nodiscard]] constexpr __device__ R
         operator()(Y y, Ys... ys) {
             return f(x, y, ys...);
         }
@@ -97,10 +97,10 @@ namespace cuda_ops {
         X x;
 
     public:
-        Partial(F f, X x) : f(f), x(x) {}
-        Partial(X x) : Partial(F(), x){};
+        [[nodiscard]] Partial(F f, X x) : f(f), x(x) {}
+        [[nodiscard]] Partial(X x) : Partial(F(), x){};
 
-        constexpr __device__ R
+        [[nodiscard]] constexpr __device__ R
         operator()() {
             return f(x);
         }
@@ -121,9 +121,9 @@ namespace cuda_ops {
         F2 f2;
 
     public:
-        Compose2(F1 f1, F2 f2) : f1{f1}, f2{f2} {}
+        [[nodiscard]] Compose2(F1 f1, F2 f2) : f1{f1}, f2{f2} {}
 
-        constexpr __host__ __device__ R1
+        [[nodiscard]] constexpr __host__ __device__ R1
         operator()(T2 x) {
             return f1(f2(x));
         }
@@ -143,9 +143,9 @@ namespace cuda_ops {
         Compose2<F2, F1, T2, R2, T1, R1> composed;
 
     public:
-        Pipe2(const F1 f1, const F2 f2) : composed{f2, f1} {}
+        [[nodiscard]] Pipe2(const F1 f1, const F2 f2) : composed{f2, f1} {}
 
-        constexpr __host__ __device__ R2
+        [[nodiscard]] constexpr __host__ __device__ R2
         operator()(T1 x) {
             return composed(x);
         }
@@ -158,7 +158,7 @@ namespace cuda_ops {
         P p;
 
     public:
-        constexpr __host__ __device__ bool
+        [[nodiscard]] constexpr __host__ __device__ bool
         operator()(Ts... xs...) {
             return !static_cast<bool>(p(xs...));
         }
