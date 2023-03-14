@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if [ $USER != "git-repo-admin" ]; then
+  if [ "$1" == refs/heads/master ]; then
+    echo "Manual pushing to this repo is restricted"
+    exit 1
+  fi
+fi
+
