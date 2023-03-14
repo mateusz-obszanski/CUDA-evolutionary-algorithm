@@ -1,3 +1,4 @@
+#include "raii/adapter.cuh"
 #include "raii/raii.cuh"
 #include "utils/text.hxx"
 #include <array>

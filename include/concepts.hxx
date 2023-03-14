@@ -24,6 +24,9 @@ namespace concepts {
     template <typename F, typename R, typename... Ts>
     concept Function = std::is_invocable_r_v<R, F, Ts...>;
 
+    template <typename F, typename R, typename... Ts>
+    concept Functor = std::is_object_v<F> and std::regular_invocable<F, Ts...>;
+
     template <typename F, typename X, typename Y = X>
     concept MappingFn = Function<F, Y, X>;
 

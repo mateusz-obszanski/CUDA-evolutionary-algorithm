@@ -1,11 +1,13 @@
 #pragma once
 
 #include "../concepts.hxx"
+#include "./shape.hxx"
 #include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <memory_resource>
 #include <ostream>
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -47,5 +49,37 @@ namespace utils {
         printVec<T>(vec, "", buff);
 
         return buff.str();
+    }
+
+    template <
+        typename T,
+        std::size_t NDims,
+        typename SizeT = std::size_t,
+        typename Alloc = std::pmr::polymorphic_allocator<T>>
+    inline std::string
+    fmtShapedVec(
+        const Shape<NDims, SizeT>&   shape,
+        const std::vector<T, Alloc>& v) {
+
+        checkShapesCompatibility(shape, {v.size()});
+
+        const auto [lenX, lenY, lenZ] = shape;
+
+        const auto nRows = lenY * lenZ;
+
+        std::string result{};
+
+        // TODO
+
+        // for (const auto z : std::ranges::views::iota(lenZ)) {
+
+        //     for (const auto y : std::ranges::views::iota(lenY)) {
+        //     }
+        // }
+
+        // for (const auto i : std::ranges::views::iota(nRows - 1)) {
+        //     const auto beg = i*;
+        //     const auto end = beg;
+        // }
     }
 } // namespace utils

@@ -13,15 +13,16 @@
 
      1. #Population
      1. #Individual
+     1. #Gene
 
-  1. #Gene
   1. N populations - N tensors (2D):
-  1. #Individual
-  1. #Gene
 
-  Can be computed using CUDA streams  
-  Difficulty for migration operator  
-  Slightly easier for everything else (mutation, crossover etc.)
+     1. #Individual
+     1. #Gene
+
+        Can be computed using CUDA streams  
+         Difficulty for migration operator  
+         Slightly easier for everything else (mutation, crossover etc.)
 
 ## To implement
 

@@ -43,7 +43,7 @@ namespace kernel {
 
         const auto a = in[idx];
 
-        if (p(a))
+        if constexpr (p(a))
             return;
 
         out[idx] = f(a);
