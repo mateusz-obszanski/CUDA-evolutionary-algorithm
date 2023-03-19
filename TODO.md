@@ -160,13 +160,22 @@ shared memory elements: $2 \cdot k$
 Kernels/device functions:
 
 - `kShuffle`
+
   - `chooseWithReplacement`
     - `randint` - normal distribution
   - Based on above - `chooseWithoutReplacement`
+
     - $k$ kernels choose indices (`atomicWrite`). If $i$ are
       duplicated, use all $k$ threads to generate remaining ones.
       Repeat as long as needed. Then, `__syncthreads`.
-  - selection shuffle
+
+      It can be also used as `discardWithoutReplacement` by filtering
+      out the results. If $k > floor(n / 2)$, launch `discardWithoutReplacement`, because then the synchronous part will be shorter - it is better to filter out.
+
+  - selection shuffle (thrust)
+
+  Alternative, simpler choice method: `maskedShuffle`, where mask is probabilistic,
+  $p = k/n$, where $k$ - expected number of chosen elements, $n$ - length of chromosome
 
 #### $p$-permutation
 
