@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./types/types.cuh"
 #include <cuda/std/iterator>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -13,8 +14,8 @@ public:
     using iterator_category = cuda::std::bidirectional_iterator_tag;
     using difference_type   = cuda::std::ptrdiff_t;
     using value_type        = T;
-    using pointer           = T*; // or also value_type*
-    using reference         = T&; // or also value_type&
+    using pointer           = device_ptr<T>;
+    using reference         = T&;
 
     [[nodiscard]] __host__ __device__
     DeviceBaseIterator(pointer p) : m_ptr{p} {}
@@ -25,7 +26,7 @@ public:
     }
 
     [[nodiscard]] __host__ __device__
-    operator T*() const noexcept {
+    operator pointer() const noexcept {
         return m_ptr;
     }
 
@@ -97,7 +98,6 @@ public:
 template <typename T>
 using DeviceConstIterator = DeviceIterator<const T>;
 
-// TODO moake it an adapter
 template <typename T>
 class DeviceReverseIterator : public DeviceBaseIterator<T> {
 public:

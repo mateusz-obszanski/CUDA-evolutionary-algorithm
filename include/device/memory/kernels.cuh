@@ -9,7 +9,7 @@ namespace memory {
 namespace kernel {
 
 /// For the same SrcT and DstT use cudaMemcpy, not a kernel
-template <typename SrcT, ::types::concepts::ConstructibleButDifferent<SrcT> DstT>
+template <typename SrcT, ::types::concepts::ConstructibleButDifferentFrom<SrcT> DstT>
 __global__ void
 copy(
     device_ptr_out<DstT>    dst,

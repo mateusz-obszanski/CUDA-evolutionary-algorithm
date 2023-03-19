@@ -81,7 +81,7 @@ int
 main() {
     device::memory::raii::DeviceMemory<int> mem(4);
     std::cout << 1 << '\n';
-    iterPrintDevice<<<1, mem.size()>>>(mem.rbegin(), mem.rend());
+    iterPrintDevice<<<1, mem.size()>>>(mem.crbegin(), mem.crend());
     // vvv SEGFAULT
     // thrust::fill(mem.begin(), mem.end(), 42);
     thrust::fill(mem.begin_thrust(), mem.end_thrust(), 42);
@@ -94,7 +94,7 @@ main() {
     auto newMem = mem.copy<float>();
     std::cout << 4 << '\n';
 
-    iterPrintDevice<<<1, mem.size()>>>(mem.begin(), mem.end());
+    iterPrintDevice<<<1, mem.size()>>>(mem.cbegin(), mem.cend());
     std::cout << 5 << '\n';
 
     mem.print();
