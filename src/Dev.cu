@@ -1,12 +1,16 @@
 #include "device/errors.cuh"
 #include "device/memory/allocator.cuh"
 #include "device/memory/memory.cuh"
+#include "device/random/distributions.cuh"
 #include <cuda/std/cstddef>
 #include <cuda/std/iterator>
 #include <curand_kernel.h>
 #include <iostream>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
+#include <thrust/random.h>
+#include <thrust/sequence.h>
+#include <thrust/sort.h>
 
 __global__ void
 mul2(int* out, cuda::std::size_t len) {
@@ -33,19 +37,26 @@ iterPrintDevice(Iter begin, Iter end) {
     printf("printf from device: %d\n", *p);
 }
 
-__global__ void
-rndGen2() {
-    using rnd_params_t = unsigned long long;
+template <typename IterT>
+inline void
+printIter(IterT begin, IterT end) {
+    thrust::copy(
+        begin, end,
+        std::ostream_iterator<typename IterT::value_type>(std::cout, ", "));
+}
 
-    const rnd_params_t seed     = 0;
-    const rnd_params_t sequence = 0;
-    const rnd_params_t offset   = 0;
+template <typename V>
+inline void
+printVec(const V& v) {
+    printIter(v.begin(), v.end());
+}
 
-    curandState_t state;
-    curand_init(seed, sequence, offset, &state);
-
-    const auto x1 = curand_uniform(&state);
-    const auto x2 = curand_uniform(&state);
+template <typename IterT>
+inline void
+PrintVecN(const IterT begin, std::size_t n) {
+    auto end = begin;
+    thrust::advance(end, n);
+    printIter(begin, end);
 }
 
 void
@@ -70,37 +81,92 @@ testManagedMemory() {
 }
 
 void
-testRnd() {
-    rndGen2<<<1, 1>>>();
-    device::errors::check();
-
-    cudaDeviceSynchronize();
-}
-
-int
-main() {
-    device::memory::raii::DeviceMemory<int> mem(4);
-    std::cout << 1 << '\n';
+testDeviceMemoryClass() {
+    device::memory::raii::Memory<int> mem(4);
     iterPrintDevice<<<1, mem.size()>>>(mem.crbegin(), mem.crend());
     // vvv SEGFAULT
     // thrust::fill(mem.begin(), mem.end(), 42);
     thrust::fill(mem.begin_thrust(), mem.end_thrust(), 42);
-    std::cout << 2 << '\n';
     std::cout << mem.rbegin_thrust().base() << '\n';
     // or
     thrust::fill(mem.rbegin_thrust(), mem.rend_thrust(), 2137);
-    std::cout << 3 << '\n';
 
     auto newMem = mem.copy<float>();
-    std::cout << 4 << '\n';
 
     iterPrintDevice<<<1, mem.size()>>>(mem.cbegin(), mem.cend());
-    std::cout << 5 << '\n';
 
     mem.print();
-    std::cout << 6 << '\n';
     newMem.print();
-    std::cout << 7 << '\n';
+}
+
+template <typename State>
+__global__ void
+skipahead_kernel(unsigned long long n, State* state) {
+    // for cuRAND
+    curand_skipahead(n, state);
+}
+
+template <typename DevIter>
+inline thrust::device_vector<typename DevIter::value_type>
+makeCopy(DevIter begin, DevIter end) {
+    thrust::device_vector<typename DevIter::value_type> xs(thrust::distance(begin, end));
+    thrust::copy(begin, end, xs.begin());
+
+    return xs;
+}
+
+template <typename DevIter>
+inline thrust::device_vector<typename DevIter::value_type>
+makeCopyN(DevIter begin, std::size_t n) {
+    thrust::device_vector<typename DevIter::value_type> xs(n);
+    thrust::copy_n(begin, n, xs.begin());
+
+    return xs;
+}
+
+template <typename T = int>
+inline thrust::device_vector<T>
+makeSequence(std::size_t n) {
+    thrust::device_vector<T> result(n);
+    thrust::sequence(result.begin(), result.end());
+
+    return result;
+}
+
+__global__ void
+curandDistributionWrapperKernel(float* x, device::random::UniformDistribution<float> d) {
+    *x = d.generate();
+}
+
+void
+testCurandDistributionWrapper() {
+    testDeviceMemoryClass();
+    std::cout << "===\n";
+    device::memory::raii::Memory<float>        mem(1);
+    device::random::UniformDistribution<float> d;
+    d.init_host();
+    curandDistributionWrapperKernel<<<1, 1>>>(mem.data(), d);
+    cudaDeviceSynchronize();
+    device::errors::check();
+    mem.print();
+    device::errors::check();
+}
+
+void
+testChooseK() {
+    // auto seq = makeSequence(32);
+    // printVec(chosen);
+}
+
+int
+main() {
+    try {
+        testCurandDistributionWrapper();
+        testChooseK();
+    } catch (const std::exception& e) {
+        std::cout << "ERROR: " << e.what() << '\n';
+        return 1;
+    }
 
     return 0;
 }

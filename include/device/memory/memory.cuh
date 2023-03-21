@@ -4,7 +4,6 @@
 #include "../../types/concepts.hxx"
 #include "../iterator.cuh"
 #include "../kernel_utils.cuh"
-#include "../types/concept.cuh"
 #include "./allocator.cuh"
 #include "./kernels.cuh"
 #include <concepts>
@@ -35,6 +34,7 @@ copy(
 }
 
 template <typename SrcT, ::types::concepts::ConstructibleButDifferentFrom<SrcT> DstT>
+    requires ::types::concepts::Mutable<DstT>
 inline void
 copy(
     device_ptr_out<DstT> dst,
@@ -52,14 +52,122 @@ copy(
 
 namespace raii {
 
+template <typename T>
+concept DeviceStorable = std::copyable<T> and
+                         std::default_initializable<T> and
+                         ::types::concepts::Mutable<T>;
+
+template <typename To, typename From>
+concept DeviceCopyable = DeviceStorable<To> and
+                         DeviceStorable<From> and
+                         std::constructible_from<From, To>;
+
+/// @brief Owner of single memory item
+/// @tparam T
 template <
-    typename T,
+    DeviceStorable T,
 
     template <typename TT>
     typename Allocator = allocator::DeviceAllocator>
 
-    requires types::concepts::DeviceAllocator<Allocator<T>, T>
-class DeviceMemory {
+    requires allocator::concepts::Allocator<Allocator<T>, T>
+class SimpleMemory {
+public:
+    using allocator_type = Allocator<T>;
+    using value_type     = allocator_type::value_type;
+    using pointer        = allocator_type::pointer;
+    using const_pointer  = allocator_type::const_pointer;
+    using size_type      = allocator_type::size_type;
+
+protected:
+    [[no_unique_address]] allocator_type mAllocator;
+    pointer                              mpData = nullptr;
+
+public:
+    [[nodiscard]] SimpleMemory(const allocator_type& allocator = allocator_type{}) noexcept
+    : mAllocator(allocator), mpData{mAllocator.allocate(1)} {}
+
+    [[nodiscard]] SimpleMemory(pointer p, const allocator_type& allocator = allocator_type{}) noexcept
+    : mpData{p}, mAllocator(allocator) {}
+
+    template <std::constructible_from<T> U>
+    [[nodiscard]] SimpleMemory(SimpleMemory<U, Allocator> other, const allocator_type& allocator = allocator_type{}) noexcept
+    : mpData{other.mpDAta}, mAllocator(allocator) {
+        other.template copy<T>(mpData);
+    }
+
+    ~SimpleMemory() noexcept {
+        allocator::deallocateSafely(mAllocator, mpData);
+    }
+
+    [[nodiscard]] inline const_pointer
+    data() const noexcept { return mpData; }
+
+    [[nodiscard]] inline pointer
+    data() noexcept { return mpData; }
+
+    template <DeviceCopyable<T> U = T>
+    void
+    copy(device_ptr<U> pTo, cudaStream_t stream = 0) const {
+        memory::copy(pTo, mpData, 1, stream);
+    }
+
+    template <DeviceCopyable<T> U = T>
+    void
+    copy(const SimpleMemory<U, Allocator>& dstOther, cudaStream_t stream = 0) const {
+        copy(dstOther.data(), stream);
+    }
+
+    template <
+        DeviceCopyable<T> U = T,
+
+        template <typename TT>
+        typename NewAllocator = Allocator>
+
+        requires allocator::concepts::Allocator<NewAllocator<U>, U> and
+                 ::types::concepts::DifferentFrom<NewAllocator<U>, allocator::HostAllocatorPinned<U>>
+    [[nodiscard]] SimpleMemory<U, NewAllocator>
+    copy(cudaStream_t stream = 0) const {
+        SimpleMemory<U, NewAllocator> newMem{};
+
+        copy(newMem, stream);
+
+        return newMem;
+    }
+
+    template <
+        DeviceCopyable<T> U = T,
+
+        template <typename TT>
+        typename NewAllocator = Allocator>
+
+        requires std::same_as<NewAllocator<U>, allocator::HostAllocatorPinned<U>>
+    [[nodiscard]] SimpleMemory<U, allocator::HostAllocatorPinned>
+    copy(cudaStream_t stream = 0) const {
+        // TODO copy from device to host pinned memory instead of normal device-device copy
+        ::errors::throwNotImplemented();
+    }
+
+    [[nodiscard]] T
+    toHost() const {
+        T x;
+
+        const auto status = cudaMemcpy(&x, mpData, sizeof(T), cudaMemcpyDeviceToHost);
+
+        errors::check(status);
+
+        return x;
+    }
+};
+
+template <
+    DeviceStorable T,
+
+    template <typename TT>
+    typename Allocator = allocator::DeviceAllocator>
+
+    requires allocator::concepts::Allocator<Allocator<T>, T>
+class Memory {
 public:
     using allocator_type                = Allocator<T>;
     using value_type                    = allocator_type::value_type;
@@ -83,23 +191,26 @@ protected:
     pointer                              mpData = nullptr;
 
 public:
-    DeviceMemory() = delete;
+    Memory() = delete;
 
-    [[nodiscard]] DeviceMemory(size_type size, Allocator<T> allocator = Allocator<T>())
+    [[nodiscard]] Memory(size_type size, Allocator<T> allocator = Allocator<T>())
     : mSize{size}, mAllocator(allocator), mpData{mAllocator.allocate(size)} {}
 
     template <std::constructible_from<T> U>
-    [[nodiscard]] DeviceMemory(const DeviceMemory<U, Allocator>& other)
-    : DeviceMemory(other.mSize, other.mAllocator) {
+    [[nodiscard]] Memory(const Memory<U, Allocator>& other)
+    : Memory(other.mSize, other.mAllocator) {
         other.template copy<T>(mpData);
     }
 
-    ~DeviceMemory() noexcept {
+    ~Memory() noexcept {
         allocator::deallocateSafely(mAllocator, mpData);
     }
 
-    [[nodiscard]] inline device_ptr<T>
+    [[nodiscard]] inline const_pointer
     data() const noexcept { return mpData; }
+
+    [[nodiscard]] inline pointer
+    data() noexcept { return mpData; }
 
     [[nodiscard]] constexpr size_type
     size() const noexcept { return mSize; }
@@ -107,29 +218,29 @@ public:
     [[nodiscard]] constexpr size_type
     sizeBytes() const noexcept { return mSize * sizeof(T); }
 
-    template <std::constructible_from<T> U = T>
+    template <DeviceCopyable<T> U = T>
     void
     copy(device_ptr<U> pTo, cudaStream_t stream = 0) const {
         memory::copy(pTo, mpData, mSize, stream);
     }
 
-    template <std::constructible_from<T> U = T>
+    template <DeviceCopyable<T> U = T>
     void
-    copy(DeviceMemory<U, Allocator>& dstOther, cudaStream_t stream = 0) const {
+    copy(Memory<U, Allocator>& dstOther, cudaStream_t stream = 0) const {
         copy(dstOther.data(), stream);
     }
 
     template <
-        std::constructible_from<T> U = T,
+        DeviceCopyable<T> U = T,
 
         template <typename TT>
         typename NewAllocator = Allocator>
 
-        requires types::concepts::DeviceAllocator<NewAllocator<U>, U> and
-                 ::types::concepts::DifferentFrom<NewAllocator<U>, allocator::DeviceAllocatorHostPinned<U>>
-    [[nodiscard]] DeviceMemory<U, NewAllocator>
+        requires allocator::concepts::Allocator<NewAllocator<U>, U> and
+                 ::types::concepts::DifferentFrom<NewAllocator<U>, allocator::HostAllocatorPinned<U>>
+    [[nodiscard]] Memory<U, NewAllocator>
     copy(cudaStream_t stream = 0) const {
-        DeviceMemory<U, NewAllocator> newMem(mSize);
+        Memory<U, NewAllocator> newMem(mSize);
 
         copy(newMem, stream);
 
@@ -137,13 +248,13 @@ public:
     }
 
     template <
-        std::constructible_from<T> U = T,
+        DeviceCopyable<T> U = T,
 
         template <typename TT>
         typename NewAllocator = Allocator>
 
-        requires std::same_as<NewAllocator<U>, allocator::DeviceAllocatorHostPinned<U>>
-    [[nodiscard]] DeviceMemory<U, allocator::DeviceAllocatorHostPinned>
+        requires std::same_as<NewAllocator<U>, allocator::HostAllocatorPinned<U>>
+    [[nodiscard]] Memory<U, allocator::HostAllocatorPinned>
     copy(cudaStream_t stream = 0) const {
         // TODO copy from device to host pinned memory instead of normal device-device copy
         ::errors::throwNotImplemented();
@@ -306,6 +417,15 @@ public:
         std::cout << toString<HostAlloc>() << '\n';
     }
 };
+
+template <DeviceStorable T>
+using DeviceMemory = Memory<T, allocator::DeviceAllocator>;
+
+template <DeviceStorable T>
+using DeviceMemoryAsync = Memory<T, allocator::DeviceAllocatorAsync>;
+
+template <DeviceStorable T>
+using HostMemoryManaged = Memory<T, allocator::HostAllocatorManaged>;
 
 } // namespace raii
 } // namespace memory

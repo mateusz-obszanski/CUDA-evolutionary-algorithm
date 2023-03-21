@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../types/concepts.hxx"
 #include "../errors.cuh"
 #include "../grid.cuh"
 #include "../types/types.cuh"
@@ -26,10 +27,10 @@ using size_t = cuda::std::size_t;
 /// This template exists only because C++ is stupid enough not to allow partial
 /// function specialization. Long live boilerplate code!
 template <typename, AllocMode>
-class DeviceMemoryLifeManager;
+class MemoryLifeManager;
 
 template <typename T>
-class DeviceMemoryLifeManager<T, AllocMode::SYNC> {
+class MemoryLifeManager<T, AllocMode::SYNC> {
 public:
     static inline cudaError_t
     malloc(device_ptr<T>* p, size_t nBytes) noexcept {
@@ -43,7 +44,7 @@ public:
 };
 
 template <typename T>
-class DeviceMemoryLifeManager<T, AllocMode::ASYNC> {
+class MemoryLifeManager<T, AllocMode::ASYNC> {
 public:
     static inline cudaError_t
     malloc(device_ptr<T>* p, size_t nBytes) noexcept {
@@ -57,7 +58,7 @@ public:
 };
 
 template <typename T>
-class DeviceMemoryLifeManager<T, AllocMode::MANAGED> {
+class MemoryLifeManager<T, AllocMode::MANAGED> {
 public:
     static inline cudaError_t
     malloc(device_ptr<T>* p, size_t nBytes) noexcept {
@@ -71,7 +72,7 @@ public:
 };
 
 template <typename T>
-class DeviceMemoryLifeManager<T, AllocMode::HOST_PINNED> {
+class MemoryLifeManager<T, AllocMode::HOST_PINNED> {
 public:
     static inline cudaError_t
     malloc(device_ptr<T>* p, size_t nBytes) noexcept {
@@ -85,9 +86,9 @@ public:
 };
 
 template <typename T, AllocMode Mode>
-class DeviceAllocatorBase {
+class AllocatorBase {
 protected:
-    using MemMgr = DeviceMemoryLifeManager<T, Mode>;
+    using MemMgr = MemoryLifeManager<T, Mode>;
 
 public:
     using value_type      = T;
@@ -97,11 +98,11 @@ public:
     using difference_type = cuda::std::ptrdiff_t;
     using is_always_equal = cuda::std::true_type; // stateless allocator
 
-    [[nodiscard]] DeviceAllocatorBase() noexcept = default;
+    [[nodiscard]] AllocatorBase() noexcept = default;
 
     template <typename U = T>
-    [[nodiscard]] inline DeviceAllocatorBase(
-        const DeviceAllocatorBase<U, Mode>&) noexcept {}
+    [[nodiscard]] inline AllocatorBase(
+        const AllocatorBase<U, Mode>&) noexcept {}
 
     [[nodiscard("MEMORY LEAK")]] pointer
     allocate(size_type n) const {
@@ -121,16 +122,16 @@ public:
 } // namespace
 
 template <typename T>
-using DeviceAllocator = DeviceAllocatorBase<T, AllocMode::SYNC>;
+using DeviceAllocator = AllocatorBase<T, AllocMode::SYNC>;
 
 template <typename T>
-using DeviceAllocatorAsync = DeviceAllocatorBase<T, AllocMode::ASYNC>;
+using DeviceAllocatorAsync = AllocatorBase<T, AllocMode::ASYNC>;
 
 template <typename T>
-using DeviceAllocatorManaged = DeviceAllocatorBase<T, AllocMode::MANAGED>;
+using HostAllocatorManaged = AllocatorBase<T, AllocMode::MANAGED>;
 
 template <typename T>
-using DeviceAllocatorHostPinned = DeviceAllocatorBase<T, AllocMode::HOST_PINNED>;
+using HostAllocatorPinned = AllocatorBase<T, AllocMode::HOST_PINNED>;
 
 using deallocationStatus_t = int;
 
@@ -177,8 +178,8 @@ handleDeallocationError<std::exception>(
 template <typename T, AllocMode Mode>
 inline deallocationStatus_t
 deallocateSafely(
-    const DeviceAllocatorBase<T, Mode>& allocator,
-    device_ptr<T>                       p,
+    const AllocatorBase<T, Mode>& allocator,
+    device_ptr<T>                 p,
     cuda::std::size_t = 0) noexcept {
 
     try {
@@ -192,6 +193,37 @@ deallocateSafely(
         handleDeallocationError();
     }
 }
+
+namespace concepts {
+
+template <typename T, typename Member>
+concept HasMemberType = true;
+
+template <typename A, typename T>
+concept Allocator =
+    requires(A a, cuda::std::size_t nBytes, device_ptr<T> p) {
+        { a.allocate(nBytes) } -> std::same_as<device_ptr<T>>;
+        { a.deallocate(p, nBytes) } -> std::same_as<void>;
+    } and
+    HasMemberType<A, typename A::value_type> and
+    HasMemberType<A, typename A::pointer> and
+    HasMemberType<A, typename A::size_type> and
+    HasMemberType<A, typename A::difference_type> and
+    HasMemberType<A, typename A::is_always_equal>;
+
+template <typename A>
+concept DeviceAllocator = types::concepts::AnyOf<
+    A,
+    DeviceAllocator<typename A::value_type>,
+    DeviceAllocatorAsync<typename A::value_type>>;
+
+template <typename A>
+concept HostAllocator = types::concepts::AnyOf<
+    A,
+    HostAllocatorManaged<typename A::value_type>,
+    HostAllocatorPinned<typename A::value_type>>;
+
+} // namespace concepts
 
 } // namespace allocator
 } // namespace memory

@@ -113,9 +113,25 @@ message("CUDA separable compilation: ON")
 
 target_compile_features(EA PUBLIC cxx_std_20)
 
+# optional faster CUDA math
+set(fast_math ON)
+
+if(fast_math)
+  set(nvcc_fast_flags
+    -ftz=true
+    -prec-div=false
+    -prec-sqrt=false
+    -use-fast-math
+  )
+endif()
+
+set(optimization_flags
+  -O3
+  ${nvcc_fast_flags}
+)
+
 set(nvcc_compiler_flags
   # --verbose
-  # -O3
   --forward-unknown-opts
   --extended-lambda
 )
@@ -124,7 +140,9 @@ set(nvcc_compiler_flags
 set(all_compile_flags 
   ${nvcc_compiler_flags}
   ${host_compiler_flags}
-  ${thrust_ignored_warnings})
+  ${thrust_ignored_warnings}
+  ${optimization_flags}
+)
 
 message("compilation flags: ${all_compile_flags}")
 
@@ -132,6 +150,18 @@ target_compile_options(EA PRIVATE ${all_compile_flags})
 
 # for development:
 add_executable(Dev src/Dev.cu)
+add_executable(Dev2 src/Dev2.cu)
 set_property(TARGET Dev PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+set_property(TARGET Dev2 PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 target_compile_features(Dev PUBLIC cxx_std_20)
-target_compile_options(Dev PRIVATE ${all_compile_flags})
+target_compile_features(Dev2 PUBLIC cxx_std_20)
+target_compile_options(Dev PRIVATE
+  ${nvcc_compiler_flags}
+  ${host_compiler_flags}
+  ${thrust_ignored_warnings}
+)
+target_compile_options(Dev2 PRIVATE
+  ${nvcc_compiler_flags}
+  ${host_compiler_flags}
+  ${thrust_ignored_warnings}
+)

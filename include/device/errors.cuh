@@ -24,9 +24,9 @@ public:
     : errCode{errCode},
       lineInfo{lineInfo},
       msg{
-          text::fmtLineInfo(lineInfo) +
-          cudaGetErrorName(errCode) +
-          cudaGetErrorName(errCode)} {}
+          text::fmtLineInfo(lineInfo) + " " +
+          cudaGetErrorName(errCode) + ": " +
+          cudaGetErrorString(errCode)} {}
 
     const char*
     what() const noexcept override {
