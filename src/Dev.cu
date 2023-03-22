@@ -139,7 +139,7 @@ testRnd() {
     device::random::RndStateMemory<> states(N);
     device::random::initialize_rnd_states(states);
     device::memory::raii::DeviceMemory<float> random_numbers(N);
-    device::random::generate_uniform(random_numbers.begin(), random_numbers.end(), states);
+    device::random::uniform(random_numbers.begin(), random_numbers.end(), states);
 
     cudaDeviceSynchronize();
     random_numbers.print();

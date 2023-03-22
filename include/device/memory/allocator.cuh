@@ -115,7 +115,9 @@ public:
 
     void
     deallocate(pointer p, size_type = 0) const {
-        errors::check(MemMgr::free(p));
+        if (p) {
+            errors::check(MemMgr::free(p));
+        }
     }
 };
 

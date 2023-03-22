@@ -22,10 +22,10 @@ template <typename T, std::same_as<T> U = T>
 inline void
 copy(
 
-    device_ptr_out<T> dst,
-    device_ptr_in<T>  src,
-    cuda::std::size_t nElems,
-    cudaStream_t      stream = 0) {
+    device_ptr_out<T>   dst,
+    device_ptr_in<T>    src,
+    cuda::std::size_t   nElems,
+    const cudaStream_t& stream = 0) {
 
     const auto status = cudaMemcpyAsync(
         dst, src, sizeof(T) * nElems, cudaMemcpyDeviceToDevice, stream);
@@ -40,7 +40,7 @@ copy(
     device_ptr_out<DstT> dst,
     device_ptr_in<SrcT>  src,
     cuda::std::size_t    nElems,
-    cudaStream_t         stream = 0) {
+    const cudaStream_t&  stream = 0) {
 
     const auto nBlocks = device::kernel::utils::calcBlockNum1D(nElems);
 
@@ -98,10 +98,21 @@ public:
     [[nodiscard]] Memory(size_type size, Allocator<T> allocator = Allocator<T>())
     : mSize{size}, mAllocator(allocator), mpData{mAllocator.allocate(size)} {}
 
-    template <std::constructible_from<T> U>
+    template <DeviceCopyable<T> U>
     [[nodiscard]] Memory(const Memory<U, Allocator>& other)
     : Memory(other.mSize, other.mAllocator) {
         other.template copy<T>(mpData);
+    }
+
+    [[nodiscard]] Memory(Memory<T, Allocator>&& other)
+    : mAllocator{other.mAllocator}, mSize{other.mSize}, mpData{other.mpData} {
+        other.mpData = nullptr;
+    }
+
+    template <DeviceCopyable<T> U>
+    [[nodiscard]] Memory(Memory<U, Allocator>&& other)
+    : Memory(other) {
+        other.mpData = nullptr;
     }
 
     ~Memory() noexcept {
@@ -122,13 +133,13 @@ public:
 
     template <DeviceCopyable<T> U = T>
     void
-    copy(device_ptr<U> pTo, cudaStream_t stream = 0) const {
+    copy(device_ptr<U> pTo, const cudaStream_t& stream = 0) const {
         memory::copy(pTo, mpData, mSize, stream);
     }
 
     template <DeviceCopyable<T> U = T>
     void
-    copy(Memory<U, Allocator>& dstOther, cudaStream_t stream = 0) const {
+    copy(Memory<U, Allocator>& dstOther, const cudaStream_t& stream = 0) const {
         copy(dstOther.data(), stream);
     }
 
@@ -141,7 +152,7 @@ public:
         requires allocator::concepts::Allocator<NewAllocator<U>, U> and
                  ::types::concepts::DifferentFrom<NewAllocator<U>, allocator::HostAllocatorPinned<U>>
     [[nodiscard]] Memory<U, NewAllocator>
-    copy(cudaStream_t stream = 0) const {
+    copy(const cudaStream_t& stream = 0) const {
         Memory<U, NewAllocator> newMem(mSize);
 
         copy(newMem, stream);
@@ -157,7 +168,7 @@ public:
 
         requires std::same_as<NewAllocator<U>, allocator::HostAllocatorPinned<U>>
     [[nodiscard]] Memory<U, allocator::HostAllocatorPinned>
-    copy(cudaStream_t stream = 0) const {
+    copy(const cudaStream_t& stream = 0) const {
         // TODO copy from device to host pinned memory instead of normal device-device copy
         ::errors::throwNotImplemented();
     }

@@ -152,5 +152,21 @@ public:
 template <typename T>
 using DeviceConstReverseIterator = DeviceReverseIterator<const T>;
 
+// reexport for overloads
+using std::distance;
+using thrust::distance;
+
+template <typename T>
+__host__ __device__ inline typename DeviceIterator<T>::difference_type
+         distance(const DeviceIterator<T> i1, const DeviceIterator<T> i2) noexcept {
+    return i2 - i1;
+}
+
+template <typename T>
+__host__ __device__ inline typename DeviceReverseIterator<T>::difference_type
+         distance(const DeviceReverseIterator<T> i1, const DeviceReverseIterator<T> i2) noexcept {
+    return i2 - i1;
+}
+
 } // namespace iterator
 } // namespace device

@@ -65,7 +65,7 @@ template <IsInitializableRndState State = curandState>
 inline void
 initialize_rnd_states(
     State* const states, std::size_t length,
-    const RndStateInitParams& params = RndStateInitParams{}, cudaStream_t stream = 0) {
+    const RndStateInitParams& params = RndStateInitParams{}, const cudaStream_t& stream = 0) {
 
     using namespace device::kernel::utils;
 
@@ -82,15 +82,19 @@ template <
 inline void
 initialize_rnd_states(
     RndStateMemory<State, Allocator>& states,
-    const RndStateInitParams& params = RndStateInitParams{}, cudaStream_t stream = 0) {
+    const RndStateInitParams& params = RndStateInitParams{}, const cudaStream_t& stream = 0) {
 
     initialize_rnd_states<State>(states.data(), states.size(), params, stream);
 }
 
 namespace functional {
 
+template <typename F, typename State>
+concept RndDistributionFunctor = IsInitializableRndState<State> and
+                                 requires(F f, State s) {{f(s)} -> std::same_as<float>; };
+
 template <IsInitializableRndState State = curandState>
-struct generate_uniform {
+struct UniformGen {
     __device__ float
     operator()(State& state) const {
         return curand_uniform(&state);
@@ -99,6 +103,31 @@ struct generate_uniform {
 
 } // namespace functional
 
+namespace utils {
+
+template <
+    typename IteratorOut,
+    IsInitializableRndState State,
+
+    template <typename TT>
+    typename Allocator,
+
+    functional::RndDistributionFunctor<State> G>
+inline void
+generate_distribution(
+    IteratorOut begin, IteratorOut end,
+    RndStateMemory<State, Allocator>& states, const cudaStream_t& stream) {
+
+    thrust::transform(
+        thrust::device.on(stream),
+        states.begin_thrust(),
+        states.begin_thrust() + device::iterator::distance(begin, end),
+        begin,
+        G{});
+}
+
+} // namespace utils
+
 template <
     typename IteratorOut,
     IsInitializableRndState State = curandState,
@@ -106,15 +135,12 @@ template <
     template <typename TT>
     typename Allocator = device::memory::allocator::DeviceAllocator>
 void
-generate_uniform(
-    IteratorOut begin, IteratorOut end, RndStateMemory<State, Allocator>& states, cudaStream_t stream = 0) {
+uniform(
+    IteratorOut begin, IteratorOut end,
+    RndStateMemory<State, Allocator>& states, const cudaStream_t& stream = 0) {
 
-    thrust::transform(
-        thrust::device.on(stream),
-        states.begin_thrust(),
-        states.begin_thrust() + (end - begin),
-        begin,
-        functional::generate_uniform<State>{});
+    utils::generate_distribution<IteratorOut, State, Allocator, functional::UniformGen<State>>(
+        begin, end, states, stream);
 }
 
 } // namespace random
