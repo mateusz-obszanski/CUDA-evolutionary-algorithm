@@ -153,7 +153,6 @@ template <typename T>
 using DeviceConstReverseIterator = DeviceReverseIterator<const T>;
 
 // reexport for overloads
-using std::distance;
 using thrust::distance;
 
 template <typename T>

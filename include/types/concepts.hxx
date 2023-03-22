@@ -33,5 +33,8 @@ concept Const = std::is_const_v<T>;
 template <typename T>
 concept Mutable = (not Const<T>);
 
+template <typename T, typename ToCompare>
+concept GtComparableWith = requires(T x, ToCompare y) {{x > y} -> std::convertible_to<bool>; };
+
 } // namespace concepts
 } // namespace types

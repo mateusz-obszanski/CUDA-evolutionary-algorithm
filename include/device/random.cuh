@@ -8,6 +8,7 @@
 #include <cuda/std/bit>
 #include <curand_kernel.h>
 #include <iterator>
+#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
@@ -134,13 +135,58 @@ template <
 
     template <typename TT>
     typename Allocator = device::memory::allocator::DeviceAllocator>
-void
+inline void
 uniform(
     IteratorOut begin, IteratorOut end,
     RndStateMemory<State, Allocator>& states, const cudaStream_t& stream = 0) {
 
     utils::generate_distribution<IteratorOut, State, Allocator, functional::UniformGen<State>>(
         begin, end, states, stream);
+}
+
+template <typename IterIn, typename IterOut, typename ThreshT>
+    requires std::constructible_from<typename IterOut::value_type, bool> and
+             types::concepts::GtComparableWith<typename IterIn::value_type, ThreshT>
+inline void
+threshold(IterIn begin, IterIn end, IterOut out, const ThreshT thresh) {
+    thrust::transform(
+        begin, end, out, [=] __device__(const float p) -> bool { return p > thresh; });
+}
+
+template <
+    typename IterOut,
+    IsInitializableRndState State = curandState,
+
+    template <typename TT>
+    typename Allocator = device::memory::allocator::DeviceAllocator>
+
+    requires std::constructible_from<typename IterOut::value_type, bool>
+inline void
+mask(
+    IterOut begin, IterOut end,
+    RndStateMemory<State, Allocator>& states, const float maskProbability = 0.5f,
+    const cudaStream_t& stream = 0) {
+
+    using Probs    = thrust::device_vector<float>;
+    using ProbIter = Probs::iterator;
+
+    ProbIter probsBegin, probsEnd;
+    Probs    probs;
+
+    if constexpr (std::same_as<typename IterOut::value_type, float>) {
+        // do not allocate additional memory, use provided iterators
+        probsBegin = thrust::device_pointer_cast(begin);
+        probsEnd   = thrust::device_pointer_cast(end);
+    } else {
+        const auto n = device::iterator::distance(begin, end);
+        probs        = Probs(n);
+
+        probsBegin = probs.begin();
+        probsEnd   = probs.end();
+    }
+
+    uniform(probsBegin, probsEnd, states, stream);
+    threshold(probsBegin, probsEnd, begin, maskProbability);
 }
 
 } // namespace random

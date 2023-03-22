@@ -40,9 +40,11 @@ iterPrintDevice(Iter begin, Iter end) {
 template <typename IterT>
 inline void
 printIter(IterT begin, IterT end) {
+    std::cout << '[';
     thrust::copy(
         begin, end,
         std::ostream_iterator<typename IterT::value_type>(std::cout, ", "));
+    std::cout << "]\n";
 }
 
 template <typename V>
@@ -146,7 +148,20 @@ testRnd() {
 }
 
 void
+testRndMask() {
+    device::random::RndStateMemory<> states(64);
+    device::random::initialize_rnd_states(states);
+    thrust::device_vector<bool> mask(states.size());
+
+    device::random::mask(mask.begin(), mask.end(), states);
+    cudaDeviceSynchronize();
+
+    printVec(mask);
+}
+
+void
 testChooseK() {
+    // TODO
     // auto seq = makeSequence(32);
     // printVec(chosen);
 }
@@ -155,7 +170,7 @@ int
 main() {
     try {
         testRnd();
-        testChooseK();
+        testRndMask();
     } catch (const std::exception& e) {
         std::cout << "ERROR: " << e.what() << '\n';
         return 1;
