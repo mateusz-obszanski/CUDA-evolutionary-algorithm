@@ -9,8 +9,55 @@
 
 namespace text {
 
+template <typename Iter>
+    requires types::concepts::StrStreamStringifiable<typename Iter::value_type>
+inline void
+printIter(
+    Iter begin, Iter end,
+    const std::string& ending = "\n",
+    std::ostream&      out    = std::cout) {
+
+    out << '[';
+
+    std::copy(
+        begin, std::prev(end),
+        std::ostream_iterator<typename Iter::value_type>(out, ", "));
+
+    if (std::distance(begin, end) != 0)
+        out << *end;
+
+    out << ']' << ending;
+}
+/// @brief For not stringifiable types - placeholders
+/// @tparam Alloc
+/// @tparam T
+/// @param vec
+/// @param end
+/// @param out
+template <typename Iter>
+    requires types::concepts::NotStrStreamStringifiable<typename Iter::value_type>
+inline void
+printIter(
+    Iter begin, Iter end,
+    const std::string& ending      = "\n",
+    std::ostream&      out         = std::cout,
+    const std::string& placeholder = "<?>") {
+
+    out << '[';
+
+    const auto length = std::distance(begin, end);
+
+    for (size_t i{0}; i < (length == 0 ? 0 : length - 1); ++i)
+        out << placeholder << ", ";
+
+    if (length != 0)
+        out << placeholder;
+
+    out << ']' << ending;
+}
+
 template <
-    types::concepts::StrStreamStringifiable T,
+    typename T,
     typename Alloc = std::pmr::polymorphic_allocator<T>>
 inline void
 printVec(
@@ -18,45 +65,7 @@ printVec(
     const std::string&           end = "\n",
     std::ostream&                out = std::cout) {
 
-    out << '[';
-
-    std::copy(
-        vec.cbegin(), std::prev(vec.cend()),
-        std::ostream_iterator<T>(out, ", "));
-
-    if (vec.size() != 0)
-        out << vec.back();
-
-    out << ']' << end;
-}
-
-/// @brief For not stringifiable types - placeholders
-/// @tparam Alloc
-/// @tparam T
-/// @param vec
-/// @param end
-/// @param out
-template <
-    types::concepts::NotStrStreamStringifiable T,
-    typename Alloc = std::pmr::polymorphic_allocator<T>>
-inline void
-printVec(
-    const std::vector<T, Alloc>& vec,
-    const std::string&           end         = "\n",
-    std::ostream&                out         = std::cout,
-    const std::string&           placeholder = "<?>") {
-
-    out << '[';
-
-    const auto vecLen = vec.size();
-
-    for (size_t i{0}; i < (vecLen == 0 ? 0 : vecLen - 1); ++i)
-        out << placeholder << ", ";
-
-    if (vecLen != 0)
-        out << placeholder;
-
-    out << ']' << end;
+    printIter(vec.cbegin(), vec.cend(), end, out);
 }
 
 template <typename T, typename Alloc = std::pmr::polymorphic_allocator<T>>

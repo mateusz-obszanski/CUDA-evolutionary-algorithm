@@ -144,6 +144,7 @@ testRnd() {
     device::random::uniform(random_numbers.begin(), random_numbers.end(), states);
 
     cudaDeviceSynchronize();
+    states.print();
     random_numbers.print();
 }
 
