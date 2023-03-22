@@ -1,7 +1,7 @@
 #include "device/errors.cuh"
 #include "device/memory/allocator.cuh"
 #include "device/memory/memory.cuh"
-#include "device/random/distributions.cuh"
+#include "device/random.cuh"
 #include <cuda/std/cstddef>
 #include <cuda/std/iterator>
 #include <curand_kernel.h>
@@ -133,23 +133,16 @@ makeSequence(std::size_t n) {
     return result;
 }
 
-__global__ void
-curandDistributionWrapperKernel(float* x, device::random::UniformDistribution<float> d) {
-    *x = d.generate();
-}
-
 void
-testCurandDistributionWrapper() {
-    testDeviceMemoryClass();
-    std::cout << "===\n";
-    device::memory::raii::Memory<float>        mem(1);
-    device::random::UniformDistribution<float> d;
-    d.init_host();
-    curandDistributionWrapperKernel<<<1, 1>>>(mem.data(), d);
+testRnd() {
+    constexpr int                    N = 64;
+    device::random::RndStateMemory<> states(N);
+    device::random::initialize_rnd_states(states);
+    device::memory::raii::DeviceMemory<float> random_numbers(N);
+    device::random::generate_uniform(random_numbers.begin(), random_numbers.end(), states);
+
     cudaDeviceSynchronize();
-    device::errors::check();
-    mem.print();
-    device::errors::check();
+    random_numbers.print();
 }
 
 void
@@ -161,7 +154,7 @@ testChooseK() {
 int
 main() {
     try {
-        testCurandDistributionWrapper();
+        testRnd();
         testChooseK();
     } catch (const std::exception& e) {
         std::cout << "ERROR: " << e.what() << '\n';

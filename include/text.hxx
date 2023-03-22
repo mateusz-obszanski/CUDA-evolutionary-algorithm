@@ -9,7 +9,9 @@
 
 namespace text {
 
-template <types::concepts::Stringifiable T, typename Alloc = std::pmr::polymorphic_allocator<T>>
+template <
+    types::concepts::StrStreamStringifiable T,
+    typename Alloc = std::pmr::polymorphic_allocator<T>>
 inline void
 printVec(
     const std::vector<T, Alloc>& vec,
@@ -34,7 +36,9 @@ printVec(
 /// @param vec
 /// @param end
 /// @param out
-template <types::concepts::NotStringifiable T, typename Alloc = std::pmr::polymorphic_allocator<T>>
+template <
+    types::concepts::NotStrStreamStringifiable T,
+    typename Alloc = std::pmr::polymorphic_allocator<T>>
 inline void
 printVec(
     const std::vector<T, Alloc>& vec,
@@ -60,7 +64,7 @@ inline std::string
 fmtVec(const std::vector<T, Alloc>& vec) {
     std::stringstream buff;
 
-    printVec(vec, "", buff);
+    printVec<T, Alloc>(vec, "", buff);
 
     return buff.str();
 }

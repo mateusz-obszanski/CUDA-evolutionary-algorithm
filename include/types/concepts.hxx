@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -21,10 +22,10 @@ concept ConstructibleButDifferentFrom =
     std::constructible_from<T, U> and DifferentFrom<T, U>;
 
 template <typename T>
-concept Stringifiable = std::constructible_from<std::string, T>;
+concept StrStreamStringifiable = requires(T t) { std::stringstream{} << t; };
 
 template <typename T>
-concept NotStringifiable = (not Stringifiable<T>);
+concept NotStrStreamStringifiable = (not StrStreamStringifiable<T>);
 
 template <typename T>
 concept Const = std::is_const_v<T>;
