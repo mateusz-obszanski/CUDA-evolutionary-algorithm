@@ -4,6 +4,7 @@
 #include "../types/types.hxx"
 #include "./errors.cuh"
 #include "./memory/allocator.cuh"
+#include "./numeric.cuh"
 #include <concepts>
 #include <cuda/std/bit>
 #include <curand_kernel.h>
@@ -144,15 +145,6 @@ uniform(
         begin, end, states, stream);
 }
 
-template <typename IterIn, typename IterOut, typename ThreshT>
-    requires std::constructible_from<typename IterOut::value_type, bool> and
-             types::concepts::GtComparableWith<typename IterIn::value_type, ThreshT>
-inline void
-threshold(IterIn begin, IterIn end, IterOut out, const ThreshT thresh) {
-    thrust::transform(
-        begin, end, out, [=] __device__(const float p) -> bool { return p > thresh; });
-}
-
 template <
     typename IterOut,
     IsInitializableRndState State = curandState,
@@ -186,7 +178,7 @@ mask(
     }
 
     uniform(probsBegin, probsEnd, states, stream);
-    threshold(probsBegin, probsEnd, begin, maskProbability);
+    numeric::threshold(probsBegin, probsEnd, begin, maskProbability);
 }
 
 } // namespace random

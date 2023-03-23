@@ -33,6 +33,13 @@ concept Const = std::is_const_v<T>;
 template <typename T>
 concept Mutable = (not Const<T>);
 
+template <typename T, typename U>
+concept EqByteSize = sizeof(T) == sizeof(U);
+
+template <typename T, typename U>
+concept NeqByteSize = not
+EqByteSize<T, U>;
+
 template <typename T, typename ToCompare>
 concept GtComparableWith = requires(T x, ToCompare y) {{x > y} -> std::convertible_to<bool>; };
 

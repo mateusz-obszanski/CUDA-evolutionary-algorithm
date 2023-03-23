@@ -109,9 +109,23 @@ public:
         other.mpData = nullptr;
     }
 
+    // copies the data, since sizeof(U) might be different than sizeof(T)
     template <DeviceCopyable<T> U>
+        requires types::concepts::NeqByteSize<T, U>
     [[nodiscard]] Memory(Memory<U, Allocator>&& other)
     : Memory(other) {
+        other.mAllocator.deallocate(other.mpData);
+        other.mpData = nullptr;
+    }
+
+    // reuses the same memory
+    template <DeviceCopyable<T> U>
+        requires types::concepts::EqByteSize<T, U>
+    [[nodiscard]] Memory(Memory<U, Allocator>&& other)
+    : mAllocator{other.mAllocator}, mSize{other.mSize}, mpData{static_cast<pointer>(other.mpData)} {
+        // convert data to correct byte format
+        other.template copy<T>(mpData);
+
         other.mpData = nullptr;
     }
 
