@@ -10,7 +10,7 @@
 #include <concepts>
 #include <cuda/std/bit>
 #include <curand_kernel.h>
-#include <iterator>
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
@@ -158,6 +158,33 @@ uniform(
         begin, end, states, stream);
 }
 
+template <
+    typename IterIn,
+    typename IterOut,
+    IsInitializableRndState State = curandState,
+
+    template <typename TT>
+    typename Allocator = device::memory::allocator::DeviceAllocator>
+
+    requires std::copyable<typename IterIn::value_type> and
+             std::convertible_to<typename IterIn::value_type, typename IterOut::value_type>
+inline IterOut
+choose_with_prob(
+    IterIn begin, IterIn end, IterOut out,
+    RndStateMemory<State, Allocator>& states,
+    const float                       p,
+    const cudaStream_t                stream = 0) {
+
+    const auto n = thrust::distance(begin, end);
+
+    thrust::device_vector<float> choiceChances(n);
+    uniform(choiceChances.begin(), choiceChances.end(), states, stream);
+
+    return thrust::copy_if(
+        begin, end, choiceChances.begin(), out,
+        [=] __device__(const float pk) { return pk < p; });
+}
+
 /// @brief Initializes random mask
 /// @tparam IterOut
 /// @tparam State
@@ -270,14 +297,30 @@ template <
 inline void
 shuffle_with_prob(
     Iter begin, Iter end, const float p,
-    RndStateMemory<State, Allocator>& states, ThrustRndEngine& rng) {
+    RndStateMemory<State, Allocator>& states, ThrustRndEngine& rng,
+    const cudaStream_t stream = 0) {
 
     const auto n = thrust::distance(begin, end);
 
-    thrust::device_vector<bool> mask(n);
-    device::random::mask(mask.begin(), mask.end(), states, p);
+    using Idx = std::size_t;
 
-    shuffle_masked_n(begin, n, mask.begin(), rng);
+    thrust::counting_iterator<Idx> firstIdx;
+    auto                           endIdx = firstIdx + n;
+
+    thrust::device_vector<Idx> chosenIndices(n);
+
+    const auto endChosenIdx = choose_with_prob(
+        firstIdx, endIdx, chosenIndices.begin(), states, p, stream);
+
+    const auto nChosen = thrust::distance(chosenIndices.begin(), endChosenIdx);
+
+    thrust::device_vector<Idx> targetIndices(nChosen);
+
+    thrust::shuffle_copy(
+        chosenIndices.begin(), endChosenIdx, targetIndices.begin(), rng);
+
+    reordering::swap_sparse_n(
+        begin, chosenIndices.begin(), targetIndices.begin(), nChosen, stream);
 }
 
 } // namespace random

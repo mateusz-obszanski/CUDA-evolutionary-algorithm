@@ -1,6 +1,8 @@
 #include <iostream>
+#include <iterator>
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <thrust/random.h>
 
 // note: functor inherits from unary_function
 struct square_root : public thrust::unary_function<float, float> {
@@ -12,6 +14,17 @@ struct square_root : public thrust::unary_function<float, float> {
 
 int
 main() {
+    // thrust::device_vector<float>             arr1(8);
+    // thrust::device_vector<float>             arr2(8);
+    // thrust::default_random_engine            rng(42);
+    // thrust::uniform_real_distribution<float> d;
+
+    // thrust::generate(arr1.begin(), arr1.end(), [=] __device__() { return d(rng); });
+    // thrust::generate(arr2.begin(), arr2.end(), [=] __device__() { return d(rng); });
+
+    // thrust::copy(arr1.begin(), arr1.end(), std::ostream_iterator<float>(std::cout));
+    // thrust::copy(arr2.begin(), arr2.end(), std::ostream_iterator<float>(std::cout));
+
     thrust::device_vector<float> v(4);
     v[0] = 1.0f;
     v[1] = 4.0f;

@@ -6,7 +6,8 @@ thrust/random.h examples:
 - [https://github.com/NVIDIA/thrust#examples]
 - [https://stackoverflow.com/a/12614606]
 
-**Thrust [docs](https://nvidia.github.io/thrust/)**
+**[Thrust docs](https://thrust.github.io)**
+**[Thrust github examples](https://nvidia.github.io/thrust/)**
 
 ## Misc
 

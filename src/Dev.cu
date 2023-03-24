@@ -162,7 +162,7 @@ testRndMask() {
 }
 
 void
-testReordering() {
+testShuffleMasked() {
     device::random::RndStateMemory<> states(10);
     device::random::initialize_rnd_states(states);
     thrust::default_random_engine rng(0);
@@ -188,6 +188,26 @@ testReordering() {
 }
 
 void
+testShuffleWithProbability() {
+    std::cout << "testShuffleWithProbability\n";
+
+    device::random::RndStateMemory<> states(10);
+    device::random::initialize_rnd_states(states);
+    thrust::default_random_engine rng(0);
+
+    thrust::device_vector<int> seq(states.size());
+    thrust::sequence(seq.begin(), seq.end());
+
+    std::cout << "before: ";
+    printVec(seq);
+
+    device::random::shuffle_with_prob(seq.begin(), seq.end(), 0.3, states, rng);
+
+    std::cout << "after:  ";
+    printVec(seq);
+}
+
+void
 testChooseK() {
     // TODO
     // auto seq = makeSequence(32);
@@ -197,7 +217,8 @@ testChooseK() {
 int
 main() {
     try {
-        testReordering();
+        // testShuffleMasked();
+        testShuffleWithProbability();
         // testRnd();
         // testRndMask();
     } catch (const std::exception& e) {
