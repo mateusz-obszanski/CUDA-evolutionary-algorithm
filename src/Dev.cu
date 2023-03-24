@@ -1,3 +1,4 @@
+#include "device/combining.cuh"
 #include "device/errors.cuh"
 #include "device/memory/allocator.cuh"
 #include "device/memory/memory.cuh"
@@ -9,6 +10,8 @@
 #include <iostream>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/random.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
@@ -228,12 +231,53 @@ testChooseKWithourReplacement() {
     printVec(choices);
 }
 
+void
+testCrossover() {
+    std::cout << "testCrossover\n";
+
+    constexpr int N = 10;
+
+    thrust::constant_iterator<int> x(42);
+    thrust::constant_iterator<int> y(-42);
+
+    thrust::device_vector<int> xs(x, x + N);
+    thrust::device_vector<int> ys(y, y + N);
+
+    thrust::host_vector<bool> maskHost(10);
+    maskHost[0] = true;
+    maskHost[2] = true;
+    maskHost[4] = true;
+    maskHost[6] = true;
+    maskHost[8] = true;
+
+    thrust::device_vector<bool> mask(maskHost.begin(), maskHost.end());
+
+    thrust::device_vector<int> result1(N);
+    thrust::device_vector<int> result2(N);
+
+    device::combining::crossover(
+        xs.begin(),
+        xs.end(),
+        ys.begin(),
+        mask.begin(),
+        result1.begin(),
+        result2.begin());
+
+    std::cout << "xs, ys, mask, result1, result2:\n";
+    printVec(xs);
+    printVec(ys);
+    printVec(mask);
+    printVec(result1);
+    printVec(result2);
+}
+
 int
 main() {
     try {
         // testShuffleMasked();
         testShuffleWithProbability();
         testChooseKWithourReplacement();
+        testCrossover();
         // testRnd();
         // testRndMask();
     } catch (const std::exception& e) {

@@ -21,6 +21,9 @@ template <typename T, typename U>
 concept ConstructibleButDifferentFrom =
     std::constructible_from<T, U> and DifferentFrom<T, U>;
 
+template <typename T, typename... U>
+concept ConvertibleToAll = (std::convertible_to<T, U> && ...);
+
 template <typename T>
 concept StrStreamStringifiable = requires(T t) { std::stringstream{} << t; };
 
@@ -50,6 +53,14 @@ concept ConvertibleIterVal =
 template <typename Iter, typename T>
 concept IterValConvertibleTo =
     std::convertible_to<typename Iter::value_type, T>;
+
+template <typename X, typename Y>
+concept MutuallyConvertible =
+    std::convertible_to<X, Y> and std::convertible_to<Y, X>;
+
+template <typename IterX, typename IterY>
+concept MutuallyConvertibleIterVal =
+    MutuallyConvertible<typename IterX::value_type, typename IterY::value_type>;
 
 } // namespace concepts
 } // namespace types

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../types/concepts.hxx"
 #include <concepts>
 #include <thrust/device_ptr.h>
 
@@ -25,6 +26,38 @@ template <typename Iter>
 inline auto
 iterToRawPtr(const Iter iter) noexcept {
     return thrust::raw_pointer_cast(&(*iter));
+}
+
+template <typename X, typename Y>
+    requires types::concepts::MutuallyConvertible<X, Y>
+__host__ __device__ inline void
+swap(const X& x, const Y& y) {
+    const auto temp = y;
+
+    x = y;
+    y = temp;
+}
+
+template <typename X, typename Y>
+    requires types::concepts::MutuallyConvertible<X, Y>
+__host__ __device__ inline void
+swap_at(X* const x, Y* const y, const std::size_t i) {
+    swap(x[i], y[i]);
+}
+
+template <typename X, typename Y>
+    requires types::concepts::MutuallyConvertible<X, Y>
+__host__ __device__ inline void
+swap_at_if(X* const xs, Y* const ys, const std::size_t i, const bool pred) {
+    if (pred)
+        swap_at(xs, ys, i);
+}
+
+template <typename X, typename Y>
+    requires types::concepts::MutuallyConvertible<X, Y>
+__host__ __device__ inline void
+swap_at_if(X* const xs, Y* const ys, const std::size_t i, bool* const preds) {
+    swap_at_if(xs, ys, i, preds[i]);
 }
 
 } // namespace utils
