@@ -47,7 +47,7 @@ printIter(
 
     const auto length = std::distance(begin, end);
 
-    for (size_t i{0}; i < (length == 0 ? 0 : length - 1); ++i)
+    for (size_t i{0}; i < static_cast<typeof(i)>(length == 0 ? 0 : length - 1); ++i)
         out << placeholder << ", ";
 
     if (length != 0)

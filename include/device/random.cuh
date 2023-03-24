@@ -3,15 +3,20 @@
 #include "../types/concepts.hxx"
 #include "../types/types.hxx"
 #include "./errors.cuh"
+#include "./mask.cuh"
 #include "./memory/allocator.cuh"
 #include "./numeric.cuh"
+#include "./reordering.cuh"
 #include <concepts>
 #include <cuda/std/bit>
 #include <curand_kernel.h>
 #include <iterator>
 #include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/random.h>
+#include <thrust/shuffle.h>
 #include <thrust/transform.h>
 #include <type_traits>
 #include <vector>
@@ -26,7 +31,10 @@ using offset_t   = ullong;
 template <typename State>
 concept IsInitializableRndState =
     types::concepts::AnyOf<
-        State, curandStateXORWOW_t, curandStateMRG32k3a_t, curandStatePhilox4_32_10_t> and
+        State,
+        curandStateXORWOW_t,
+        curandStateMRG32k3a_t,
+        curandStatePhilox4_32_10_t> and
     device::memory::raii::DeviceStorable<State>;
 
 template <
@@ -49,7 +57,7 @@ namespace kernel {
 template <IsInitializableRndState State = curandState>
 __global__ void
 initialize_rnd_states(
-    State* const states, std::size_t length,
+    device_ptr_inout<State> states, const uint length,
     const RndStateInitParams params = RndStateInitParams{}) {
 
     const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -67,12 +75,14 @@ template <IsInitializableRndState State = curandState>
 inline void
 initialize_rnd_states(
     State* const states, std::size_t length,
-    const RndStateInitParams& params = RndStateInitParams{}, const cudaStream_t& stream = 0) {
+    const RndStateInitParams& params = RndStateInitParams{},
+    const cudaStream_t&       stream = 0) {
 
     using namespace device::kernel::utils;
 
     const auto nBlocks = calcBlockNum1D(length);
-    kernel::initialize_rnd_states<<<nBlocks, BLOCK_SIZE_DEFAULT, 0, stream>>>(states, length, params);
+    kernel::initialize_rnd_states<<<nBlocks, BLOCK_SIZE_DEFAULT, 0, stream>>>(
+        states, length, params);
     errors::check();
 }
 
@@ -84,7 +94,8 @@ template <
 inline void
 initialize_rnd_states(
     RndStateMemory<State, Allocator>& states,
-    const RndStateInitParams& params = RndStateInitParams{}, const cudaStream_t& stream = 0) {
+    const RndStateInitParams&         params = RndStateInitParams{},
+    const cudaStream_t&               stream = 0) {
 
     initialize_rnd_states<State>(states.data(), states.size(), params, stream);
 }
@@ -92,8 +103,9 @@ initialize_rnd_states(
 namespace functional {
 
 template <typename F, typename State>
-concept RndDistributionFunctor = IsInitializableRndState<State> and
-                                 requires(F f, State s) {{f(s)} -> std::same_as<float>; };
+concept RndDistributionFunctor =
+    IsInitializableRndState<State> and
+    requires(F f, State s) {{f(s)} -> std::same_as<float>; };
 
 template <IsInitializableRndState State = curandState>
 struct UniformGen {
@@ -141,10 +153,19 @@ uniform(
     IteratorOut begin, IteratorOut end,
     RndStateMemory<State, Allocator>& states, const cudaStream_t& stream = 0) {
 
-    utils::generate_distribution<IteratorOut, State, Allocator, functional::UniformGen<State>>(
+    utils::generate_distribution<
+        IteratorOut, State, Allocator, functional::UniformGen<State>>(
         begin, end, states, stream);
 }
 
+/// @brief Initializes random mask
+/// @tparam IterOut
+/// @tparam State
+/// @param begin
+/// @param end
+/// @param states
+/// @param maskProbability
+/// @param stream
 template <
     typename IterOut,
     IsInitializableRndState State = curandState,
@@ -156,7 +177,7 @@ template <
 inline void
 mask(
     IterOut begin, IterOut end,
-    RndStateMemory<State, Allocator>& states, const float maskProbability = 0.5f,
+    RndStateMemory<State, Allocator>& states, const float maskProbability,
     const cudaStream_t& stream = 0) {
 
     using Probs    = thrust::device_vector<float>;
@@ -178,7 +199,85 @@ mask(
     }
 
     uniform(probsBegin, probsEnd, states, stream);
-    numeric::threshold(probsBegin, probsEnd, begin, maskProbability);
+    numeric::threshold_less(probsBegin, probsEnd, begin, maskProbability);
+}
+
+template <typename Iter, typename IterMask>
+concept ShuffleMaskedAble =
+    std::copyable<typename Iter::value_type> and
+    std::convertible_to<typename IterMask::value_type, bool>;
+
+template <typename Iter, typename IdxIter, typename ThrustRndEngine>
+    requires std::copyable<typename Iter::value_type> and
+             std::integral<typename IdxIter::value_type>
+inline void
+shuffle_at(
+    Iter begin, IdxIter indicesBegin, IdxIter indicesEnd, ThrustRndEngine& rng) {
+
+    using Idx    = typename IdxIter::value_type;
+    using IdxVec = thrust::device_vector<Idx>;
+
+    const auto n = thrust::distance(indicesBegin, indicesEnd);
+
+    // make copy of indices and shuffle them, those will be destination indices
+    IdxVec shuffledIndices(n);
+    thrust::shuffle_copy(
+        indicesBegin, indicesEnd, shuffledIndices.begin(), rng);
+
+    reordering::swap_sparse_n(
+        begin, indicesBegin, shuffledIndices.begin(), n);
+}
+
+template <typename Iter, typename IterMask, typename ThrustRndEngine>
+    requires ShuffleMaskedAble<Iter, IterMask>
+inline void
+shuffle_masked_n(
+    Iter begin, const std::size_t n, IterMask beginMask, ThrustRndEngine& rng) {
+
+    using Idx    = std::size_t;
+    using IdxVec = thrust::device_vector<Idx>;
+
+    IdxVec maskIndices(n);
+    // populating maskIndices
+    const auto lastMaskIdx = mask::mask_indices_n(beginMask, n, maskIndices.begin());
+
+    shuffle_at(begin, maskIndices.begin(), lastMaskIdx, rng);
+}
+
+template <typename Iter, typename IterMask, typename ThrustRndEngine>
+    requires ShuffleMaskedAble<Iter, IterMask>
+inline void
+shuffle_masked(Iter begin, Iter end, IterMask beginMask, ThrustRndEngine& rng) {
+    shuffle_masked_n(begin, iterator::distance(begin, end), beginMask, rng);
+}
+
+/// @brief Shuffles subset of elements pooled with probability `p`
+/// @tparam Iter
+/// @tparam ThrustRndEngine
+/// @tparam State
+/// @param begin
+/// @param end
+/// @param p
+/// @param states
+/// @param rng
+template <
+    typename Iter,
+    typename ThrustRndEngine,
+    IsInitializableRndState State = curandState,
+
+    template <typename TT>
+    typename Allocator = device::memory::allocator::DeviceAllocator>
+inline void
+shuffle_with_prob(
+    Iter begin, Iter end, const float p,
+    RndStateMemory<State, Allocator>& states, ThrustRndEngine& rng) {
+
+    const auto n = thrust::distance(begin, end);
+
+    thrust::device_vector<bool> mask(n);
+    device::random::mask(mask.begin(), mask.end(), states, p);
+
+    shuffle_masked_n(begin, n, mask.begin(), rng);
 }
 
 } // namespace random

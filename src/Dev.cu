@@ -2,6 +2,7 @@
 #include "device/memory/allocator.cuh"
 #include "device/memory/memory.cuh"
 #include "device/random.cuh"
+#include "device/reordering.cuh"
 #include <cuda/std/cstddef>
 #include <cuda/std/iterator>
 #include <curand_kernel.h>
@@ -154,10 +155,36 @@ testRndMask() {
     device::random::initialize_rnd_states(states);
     thrust::device_vector<bool> mask(states.size());
 
-    device::random::mask(mask.begin(), mask.end(), states);
+    device::random::mask(mask.begin(), mask.end(), states, 0.5);
     cudaDeviceSynchronize();
 
     printVec(mask);
+}
+
+void
+testReordering() {
+    device::random::RndStateMemory<> states(10);
+    device::random::initialize_rnd_states(states);
+    thrust::default_random_engine rng(0);
+
+    thrust::device_vector<bool> mask(states.size());
+    device::random::mask(mask.begin(), mask.end(), states, 0.3);
+    cudaDeviceSynchronize();
+
+    std::cout << "mask:   ";
+    printVec(mask);
+
+    thrust::device_vector<int> seq(mask.size());
+    thrust::sequence(seq.begin(), seq.end());
+
+    std::cout << "before: ";
+    printVec(seq);
+
+    device::random::shuffle_masked(seq.begin(), seq.end(), mask.begin(), rng);
+    cudaDeviceSynchronize();
+
+    std::cout << "after:  ";
+    printVec(seq);
 }
 
 void
@@ -170,8 +197,9 @@ testChooseK() {
 int
 main() {
     try {
-        testRnd();
-        testRndMask();
+        testReordering();
+        // testRnd();
+        // testRndMask();
     } catch (const std::exception& e) {
         std::cout << "ERROR: " << e.what() << '\n';
         return 1;
