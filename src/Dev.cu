@@ -271,6 +271,37 @@ testCrossover() {
     printVec(result2);
 }
 
+void
+testRandomCrossover() {
+    std::cout << "testRandomCrossover\n";
+
+    device::random::RndStateMemory<> states(10);
+    device::random::initialize_rnd_states(states);
+
+    thrust::constant_iterator<int> x(42);
+    thrust::constant_iterator<int> y(-42);
+
+    thrust::device_vector<int> xs(x, x + states.size());
+    thrust::device_vector<int> ys(y, y + states.size());
+
+    thrust::device_vector<int> result1(states.size());
+    thrust::device_vector<int> result2(states.size());
+
+    device::random::crossover(
+        xs.begin(),
+        xs.end(),
+        ys.begin(),
+        result1.begin(),
+        result2.begin(),
+        states);
+
+    std::cout << "xs, ys, result1, result2:\n";
+    printVec(xs);
+    printVec(ys);
+    printVec(result1);
+    printVec(result2);
+}
+
 int
 main() {
     try {
@@ -278,6 +309,7 @@ main() {
         testShuffleWithProbability();
         testChooseKWithourReplacement();
         testCrossover();
+        testRandomCrossover();
         // testRnd();
         // testRndMask();
     } catch (const std::exception& e) {

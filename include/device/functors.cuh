@@ -11,7 +11,7 @@ class Threshold {
 public:
     const Thresh thresh;
 
-    __host__ __device__ bool
+    __host__ __device__ __forceinline__ bool
     operator()(const float p) const noexcept { return p > thresh; }
 };
 
@@ -21,7 +21,7 @@ class ThresholdLess {
 public:
     const Thresh thresh;
 
-    __host__ __device__ bool
+    __host__ __device__ __forceinline__ bool
     operator()(const float p) const noexcept { return p < thresh; }
 };
 

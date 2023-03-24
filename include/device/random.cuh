@@ -2,6 +2,7 @@
 
 #include "../types/concepts.hxx"
 #include "../types/types.hxx"
+#include "./combining.cuh"
 #include "./errors.cuh"
 #include "./mask.cuh"
 #include "./memory/allocator.cuh"
@@ -383,6 +384,44 @@ shuffle_with_prob(
 
     reordering::swap_sparse_n(
         begin, chosenIndices.begin(), targetIndices.begin(), nChosen, stream);
+}
+
+template <
+    typename IterX,
+    typename IterY,
+    typename IterOut1,
+    typename IterOut2,
+
+    IsInitializableRndState State = curandState,
+
+    template <typename TT>
+    typename Allocator = device::memory::allocator::DeviceAllocator>
+
+    requires combining::Crossoverable<IterX, IterY, IterOut1, IterOut2>
+inline void
+crossover(
+    IterX                             beginX,
+    IterX                             endX,
+    IterY                             beginY,
+    IterOut1                          beginOut1,
+    IterOut2                          beginOut2,
+    RndStateMemory<State, Allocator>& states,
+    const cudaStream_t                stream = 0) {
+
+    const auto n = thrust::distance(beginX, endX);
+
+    thrust::device_vector<float> swapChances(n);
+    uniform(swapChances.begin(), swapChances.end(), states, stream);
+
+    combining::crossover(
+        beginX,
+        endX,
+        beginY,
+        swapChances.begin(),
+        functors::ThresholdLess{0.5},
+        beginOut1,
+        beginOut2,
+        stream);
 }
 
 } // namespace random
