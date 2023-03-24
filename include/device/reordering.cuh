@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../types/concepts.hxx"
 #include "../types/traits.hxx"
 #include "./errors.cuh"
 #include "./iterator.cuh"
@@ -12,14 +13,6 @@
 namespace device {
 namespace reordering {
 
-namespace concepts {
-
-template <typename IterIn, typename IterOut, typename IterMask>
-concept CopyMaskedAble = std::convertible_to<typename IterIn::value_type, typename IterOut::value_type> and
-                         std::convertible_to<typename IterMask::value_type, bool>;
-
-} // namespace concepts
-
 namespace kernel {
 
 /// @brief swaps arr[idxFrom] -> arr[idxTo], assuming idxFrom/To is unique
@@ -30,7 +23,7 @@ namespace kernel {
 /// @param idxFrom
 /// @param IdxTo
 /// @param nIdx
-template <typename T, typename Idx>
+template <std::copyable T, std::integral Idx>
 __global__ void
 swap_sparse(
     device_ptr_inout<T> arr,
@@ -44,6 +37,22 @@ swap_sparse(
     arr[idxTo[tid]] = arr[idxFrom[tid]];
 }
 
+template <typename T1, std::constructible_from<T1> T2, std::integral Idx = std::size_t>
+__global__ void
+select(
+    device_ptr_in<T1>  in,
+    device_ptr_out<T2> out,
+    device_ptr_in<Idx> indices,
+    culong             nIndices) {
+
+    const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid >= nIndices)
+        return;
+
+    out[tid] = in[indices[tid]];
+}
+
 } // namespace kernel
 
 template <typename Iter, typename IterIdx>
@@ -54,12 +63,34 @@ swap_sparse_n(
 
     const auto nBlocks = device::kernel::utils::calcBlockNum1D(nIdx);
 
+    using device::kernel::utils::iterToRawPtr;
+
     kernel::swap_sparse<<<nBlocks, device::kernel::utils::BLOCK_SIZE_DEFAULT, 0, stream>>>(
-        thrust::raw_pointer_cast(&begin[0]),
-        thrust::raw_pointer_cast(&idxFrom[0]),
-        thrust::raw_pointer_cast(&idxTo[0]),
+        iterToRawPtr(begin),
+        iterToRawPtr(idxFrom),
+        iterToRawPtr(idxTo),
         nIdx);
     errors::check();
+}
+
+template <typename IterIn, typename IterOut, typename IterIdx>
+    requires types::concepts::ConvertibleIterVal<IterIn, IterOut> and
+             std::integral<typename IterIdx::value_type>
+inline void
+select_k(
+    IterIn in, IterOut out, IterIdx indicesBegin, std::size_t k,
+    const cudaStream_t stream = 0) {
+
+    const auto nBlocks =
+        device::kernel::utils::calcBlockNum1D(k);
+
+    using device::kernel::utils::iterToRawPtr;
+
+    kernel::select<<<nBlocks, device::kernel::utils::BLOCK_SIZE_DEFAULT, 0, stream>>>(
+        iterToRawPtr(in),
+        iterToRawPtr(out),
+        iterToRawPtr(indicesBegin),
+        k);
 }
 
 } // namespace reordering

@@ -208,10 +208,24 @@ testShuffleWithProbability() {
 }
 
 void
-testChooseK() {
-    // TODO
-    // auto seq = makeSequence(32);
-    // printVec(chosen);
+testChooseKWithourReplacement() {
+    std::cout << "testChooseKWithourReplacement\n";
+
+    device::random::RndStateMemory<> states(10);
+    device::random::initialize_rnd_states(states);
+
+    thrust::device_vector<int> seq(states.size());
+    thrust::sequence(seq.begin(), seq.end());
+
+    const int k = 3;
+
+    thrust::device_vector<int> choices(k);
+
+    device::random::choose_k_without_replacement(
+        seq.begin(), seq.end(), choices.begin(), k, states);
+
+    std::cout << "choices: ";
+    printVec(choices);
 }
 
 int
@@ -219,6 +233,7 @@ main() {
     try {
         // testShuffleMasked();
         testShuffleWithProbability();
+        testChooseKWithourReplacement();
         // testRnd();
         // testRndMask();
     } catch (const std::exception& e) {

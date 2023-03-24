@@ -37,11 +37,19 @@ template <typename T, typename U>
 concept EqByteSize = sizeof(T) == sizeof(U);
 
 template <typename T, typename U>
-concept NeqByteSize = not
-EqByteSize<T, U>;
+concept NeqByteSize = (not EqByteSize<T, U>);
 
 template <typename T, typename ToCompare>
-concept GtComparableWith = requires(T x, ToCompare y) {{x > y} -> std::convertible_to<bool>; };
+concept GtComparableWith =
+    requires(T x, ToCompare y) {{x > y} -> std::convertible_to<bool>; };
+
+template <typename IterL, typename IterR>
+concept ConvertibleIterVal =
+    std::convertible_to<typename IterL::value_type, typename IterR::value_type>;
+
+template <typename Iter, typename T>
+concept IterValConvertibleTo =
+    std::convertible_to<typename Iter::value_type, T>;
 
 } // namespace concepts
 } // namespace types

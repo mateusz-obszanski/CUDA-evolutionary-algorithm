@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <thrust/device_ptr.h>
 
 namespace device {
 namespace kernel {
@@ -18,6 +19,12 @@ divCeil(T x, T y) {
 __host__ __device__ constexpr uint
 calcBlockNum1D(const uint nElems, const uint blockSize = BLOCK_SIZE_DEFAULT) {
     return divCeil(nElems, blockSize);
+}
+
+template <typename Iter>
+inline auto
+iterToRawPtr(const Iter iter) noexcept {
+    return thrust::raw_pointer_cast(&(*iter));
 }
 
 } // namespace utils

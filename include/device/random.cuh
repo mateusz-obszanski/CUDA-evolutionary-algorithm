@@ -17,6 +17,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/random.h>
 #include <thrust/shuffle.h>
+#include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <type_traits>
 #include <vector>
@@ -169,7 +170,7 @@ template <
     requires std::copyable<typename IterIn::value_type> and
              std::convertible_to<typename IterIn::value_type, typename IterOut::value_type>
 inline IterOut
-choose_with_prob(
+choose_with_prob_without_replacement(
     IterIn begin, IterIn end, IterOut out,
     RndStateMemory<State, Allocator>& states,
     const float                       p,
@@ -183,6 +184,67 @@ choose_with_prob(
     return thrust::copy_if(
         begin, end, choiceChances.begin(), out,
         [=] __device__(const float pk) { return pk < p; });
+}
+
+template <
+    typename IterOut,
+    std::integral           K     = std::size_t,
+    IsInitializableRndState State = curandState,
+
+    template <typename TT>
+    typename Allocator = device::memory::allocator::DeviceAllocator>
+inline void
+choose_k_without_replacement(
+    const std::size_t n, IterOut out, K k,
+    RndStateMemory<State, Allocator>& states, const cudaStream_t stream = 0) {
+
+    if (k <= 0 || n <= 0)
+        return;
+
+    // instead cudaMallocAsync?
+    thrust::device_vector<float> priorities(n);
+    uniform(priorities.begin(), priorities.end(), states, stream);
+
+    using Idx = std::size_t;
+
+    const thrust::counting_iterator<Idx> firstIdx;
+
+    thrust::device_vector<Idx> indices(firstIdx, firstIdx + n);
+
+    thrust::sort_by_key(
+        thrust::device.on(stream),
+        priorities.begin(), priorities.end(),
+        indices.begin());
+
+    thrust::copy_n(thrust::device.on(stream), indices.begin(), k, out);
+}
+
+template <
+    typename IterIn,
+    typename IterOut,
+    std::integral           K     = std::size_t,
+    IsInitializableRndState State = curandState,
+
+    template <typename TT>
+    typename Allocator = device::memory::allocator::DeviceAllocator>
+
+    requires ::types::concepts::ConvertibleIterVal<IterIn, IterOut>
+inline void
+choose_k_without_replacement(
+    IterIn begin, IterIn end, IterOut out, K k,
+    RndStateMemory<State, Allocator>& states, const cudaStream_t stream = 0) {
+
+    using Idx = std::size_t;
+
+    if (k <= 0)
+        return;
+
+    const auto n = thrust::distance(begin, end);
+
+    thrust::device_vector<Idx> chosenIndices(k);
+    choose_k_without_replacement(n, chosenIndices.begin(), k, states, stream);
+
+    reordering::select_k(begin, out, chosenIndices.begin(), k, stream);
 }
 
 /// @brief Initializes random mask
@@ -309,7 +371,7 @@ shuffle_with_prob(
 
     thrust::device_vector<Idx> chosenIndices(n);
 
-    const auto endChosenIdx = choose_with_prob(
+    const auto endChosenIdx = choose_with_prob_without_replacement(
         firstIdx, endIdx, chosenIndices.begin(), states, p, stream);
 
     const auto nChosen = thrust::distance(chosenIndices.begin(), endChosenIdx);
