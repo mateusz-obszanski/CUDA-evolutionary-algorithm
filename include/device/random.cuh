@@ -212,7 +212,8 @@ choose_k_without_replacement(
 
     thrust::device_vector<Idx> indices(firstIdx, firstIdx + n);
 
-    thrust::sort_by_key(
+    // stable for determinism (would be irrelevant if there was no key)
+    thrust::stable_sort_by_key(
         thrust::device.on(stream),
         priorities.begin(), priorities.end(),
         indices.begin());

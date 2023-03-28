@@ -14,7 +14,6 @@
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/random.h>
 #include <thrust/sequence.h>
-#include <thrust/sort.h>
 
 __global__ void
 mul2(int* out, cuda::std::size_t len) {
