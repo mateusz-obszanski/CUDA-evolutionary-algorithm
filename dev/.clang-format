@@ -1,0 +1,22 @@
+Language: Cpp
+BasedOnStyle: LLVM
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+AccessModifierOffset: -4
+ConstructorInitializerIndentWidth: 0
+# NamespaceIndentation: All
+ColumnLimit: 0
+BreakBeforeBraces: Attach
+BreakConstructorInitializers: BeforeColon
+# PackConstructorInitializers: NextLine
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+AlignEscapedNewlines: true
+AlignOperands: AlignAfterOperator
+AlwaysBreakAfterReturnType: All
+PointerAlignment: Left
+ReferenceAlignment: Left
+# LineEnding: DeriveLF # clang-format >= 16
+# InsertNewlineAtEOF: true # clang-format >= 16

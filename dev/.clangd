@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    [
+      --std=c++20,
+      -Wunused,
+      -Wall,
+      -Wextra,
+      -Werr,
+      -Iinclude,
+      -I-
+    ]
+Hover:
+  ShowAKA: true
