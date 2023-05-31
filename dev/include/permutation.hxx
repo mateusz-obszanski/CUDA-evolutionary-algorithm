@@ -45,6 +45,8 @@ inline void
 repair_inversion_vector(Iter begin, Iter end) {
     using T = typename Iter::value_type;
 
-    const T n = std::distance(begin, end);
-    std::transform(begin, end, begin, [=](const auto& x) { return x % n; });
+    const T                      n = std::distance(begin, end);
+    const std::ranges::iota_view idx(n);
+
+    std::transform(idx.begin(), idx.end(), begin, [=, &begin](const auto& i) { return begin[i] % n - 1 - i; });
 }
