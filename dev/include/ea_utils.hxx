@@ -44,6 +44,18 @@ mutatePopulation(
         choice_shuffle(mutationChance, individual, individual + nGenes, prng, mask);
 }
 
+template <typename Iter, typename IterMask, typename PRNG>
+inline void
+rndMaskCrossover(Iter begin1, Iter end1, Iter begin2, IterMask mask, const float prob, PRNG& prng) {
+    const auto                        n = std::distance(begin1, end1);
+    const std::bernoulli_distribution dist(prob);
+    // fill random mask
+    // instead of generating mask array, mask value could be calculated as a local variable,
+    // but this versoin can be parallelized easily
+    std::generate(mask, mask + n, [&] { return dist(prng); });
+    swap_masked(begin1, end1, begin2, mask);
+}
+
 using CostT  = float;
 using CostMx = std::vector<CostT>;
 

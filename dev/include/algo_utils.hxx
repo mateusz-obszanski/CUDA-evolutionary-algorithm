@@ -148,3 +148,16 @@ rnd_shuffle_indices(
     std::generate(maskBegin, maskEnd, [&] { return dist(prng); });
     generate_shuffle_with_mask_indices(srcIdxs, targetIdxs, maskBegin, maskEnd, prng);
 }
+
+template <typename Iter, typename IterMask>
+inline void
+swap_masked(Iter begin1, Iter end1, Iter begin2, IterMask mask) {
+    while (begin1 != end1) {
+        if (*mask)
+            std::swap(begin1, begin2);
+
+        ++begin1;
+        ++begin2;
+        ++mask;
+    }
+}
