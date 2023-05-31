@@ -1,7 +1,9 @@
 #include "algo_utils.hxx"
 #include "ea_utils.hxx"
 #include "iter_utils.hxx"
+#include "permutation.hxx"
 #include "rnd_utils.hxx"
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
@@ -181,10 +183,31 @@ playground() {
     prettyPrintMx(popLossMx);
 }
 
+inline void
+dev_permutation_inversion_sequence() {
+    std::vector<int> inversion_vec{3, 2, 1, 0, 0};
+    // std::vector<int> inversion_vec{1, 1, 2, 1, 0};
+    std::cout << "inversion vector: ";
+    printlnContainer(inversion_vec);
+
+    const auto permutation = inversion_vector_to_permutation(inversion_vec.cbegin(), inversion_vec.size());
+
+    std::cout << "permutation: ";
+    printlnContainer(permutation);
+
+    const auto inversion_vec2 = permutation_to_inversion_vector(permutation.cbegin(), permutation.size());
+
+    std::cout << "to inversion vector: ";
+    printlnContainer(inversion_vec2);
+
+    std::cout << "ok? " << (inversion_vec == inversion_vec2) << '\n';
+}
+
 int
 main() {
     try {
-        playground();
+        // playground();
+        dev_permutation_inversion_sequence();
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         return 1;

@@ -1,4 +1,5 @@
 #pragma once
+#include "./algo_utils.hxx"
 #include "./counter.hxx"
 #include "./matrix_utils.hxx"
 #include "./rnd_utils.hxx"

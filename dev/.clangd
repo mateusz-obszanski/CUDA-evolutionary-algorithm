@@ -5,6 +5,8 @@ CompileFlags:
       -Wunused,
       -Wall,
       -Wextra,
+      # to suppress unknown opts set by e.g. Cmake in some parent directory
+      -Wno-unknown-warning-option,
       -Werr,
       -Iinclude,
       -I-

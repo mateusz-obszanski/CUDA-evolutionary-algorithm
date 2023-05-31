@@ -8,11 +8,24 @@
 
 template <typename Iter>
 inline void
-printIter(Iter begin, Iter end) {
-    using value_t = typename Iter::value_type;
-    std::cout << '[';
-    std::copy(begin, end, std::ostream_iterator<value_t>(std::cout, ", "));
-    std::cout << "]\n";
+printIter(Iter begin, Iter end, std::ostream& out = std::cout) {
+    using T = typename Iter::value_type;
+
+    out << '[';
+    const auto nextToLast = std::prev(end);
+    std::copy(begin, nextToLast, std::ostream_iterator<T>(out, ", "));
+
+    if (std::distance(begin, end) != 0)
+        out << *nextToLast;
+
+    out << ']';
+}
+
+template <typename Iter>
+inline void
+printlnIter(Iter begin, Iter end, std::ostream& out = std::cout) {
+    printIter(begin, end, out);
+    out << '\n';
 }
 
 template <typename Container>
@@ -34,6 +47,30 @@ concept RandomAccessContainer = requires(Container c, int i) {
 
 template <ConstIterable Container>
 inline void
-printContainer(const Container& c) {
-    printIter(c.cbegin(), c.cend());
+printContainer(const Container& c, std::ostream& out = std::cout) {
+    printIter(c.cbegin(), c.cend(), out);
+}
+
+template <ConstIterable Container>
+inline void
+printlnContainer(const Container& c, std::ostream& out = std::cout) {
+    printlnIter(c.cbegin(), c.cend(), out);
+}
+
+/// stop >= start
+template <typename Idx = int>
+[[nodiscard]] inline std::vector<Idx>
+range_vec(const Idx start, const Idx stop) {
+    std::vector<Idx> result;
+    result.reserve(stop - start);
+    const std::ranges::iota_view indices(start, stop);
+    std::for_each(indices.begin(), indices.end(), [&result](const auto& i) { result.push_back(i); });
+
+    return result;
+}
+
+template <typename Idx = int>
+[[nodiscard]] inline std::vector<Idx>
+range_vec(const Idx stop) {
+    return range_vec(0, stop);
 }

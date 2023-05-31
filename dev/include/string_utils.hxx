@@ -45,3 +45,15 @@ stringify_many(Iter begin, Iter end) {
 
     return strings;
 }
+
+template <std::convertible_to<bool> T>
+[[nodiscard]] inline constexpr std::string
+pretty_bool(const T x) {
+    return x ? "true" : "false";
+}
+
+template <std::convertible_to<bool> T>
+[[nodiscard]] inline constexpr std::string
+yes_no(const T x) {
+    return x ? "yes" : "no";
+}
