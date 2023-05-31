@@ -3,8 +3,10 @@
 #include "iter_utils.hxx"
 #include "permutation.hxx"
 #include "rnd_utils.hxx"
+#include "string_utils.hxx"
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 void
@@ -184,30 +186,97 @@ playground() {
 }
 
 inline void
-dev_permutation_inversion_sequence() {
-    std::vector<int> inversion_vec{3, 2, 1, 0, 0};
-    // std::vector<int> inversion_vec{1, 1, 2, 1, 0};
-    std::cout << "inversion vector: ";
-    printlnContainer(inversion_vec);
+showcase_permutation_inversion_sequence() {
+    const auto check_ok = [](const auto& a, const auto& b) {
+        std::cout << "ok? " << yes_no(a == b) << "\n\n";
+    };
 
-    const auto permutation = inversion_vector_to_permutation(inversion_vec.cbegin(), inversion_vec.size());
+    // std::vector<int> inversion_vec_gt{3, 2, 1, 0, 0};
+    // std::vector<int> permutation_gt{3, 2, 1, 0, 4};
+    std::vector<int> inversion_vec_gt{1, 1, 2, 1, 0};
+    std::vector<int> permutation_gt{4, 0, 1, 3, 2};
+
+    using Iter            = decltype(inversion_vec_gt.cbegin());
+    constexpr auto Coding = InversionVectorCoding::SAME;
+
+    const auto permutation = inversion_vector_to_permutation<Iter, Coding>(inversion_vec_gt.cbegin(), inversion_vec_gt.size());
+
+    std::cout << "permutation ground-truth: ";
+    printlnContainer(permutation_gt);
 
     std::cout << "permutation: ";
     printlnContainer(permutation);
 
-    const auto inversion_vec2 = permutation_to_inversion_vector(permutation.cbegin(), permutation.size());
+    check_ok(permutation, permutation_gt);
+
+    const auto inversion_vec = permutation_to_inversion_vector<Iter, Coding>(permutation_gt.cbegin(), permutation_gt.size());
+
+    std::cout << "inversion vector ground-truth: ";
+    printlnContainer(inversion_vec_gt);
 
     std::cout << "to inversion vector: ";
-    printlnContainer(inversion_vec2);
+    printlnContainer(inversion_vec);
 
-    std::cout << "ok? " << (inversion_vec == inversion_vec2) << '\n';
+    check_ok(inversion_vec, inversion_vec_gt);
+
+    std::cout << "abstract coders:\n";
+    std::vector<std::unique_ptr<AbstractPermutationCoder>> coders;
+    coders.push_back(std::make_unique<PolymorphicPermutationCoderSame>());
+    coders.push_back(std::make_unique<PolymorphicPermutationCoderShort>());
+
+    for (const auto& coder : coders) {
+        std::cout << "coder: " << coder->get_coding_str() << '\n';
+
+        std::cout << "permutation ground-truth: ";
+        printlnContainer(permutation_gt);
+
+        std::cout << "inversion vector ground-truth: ";
+        printlnContainer(inversion_vec_gt);
+
+        auto inv = coder->encode(permutation_gt);
+
+        // for SHORT coding, to check we must append 0
+        if (coder->get_coding() == InversionVectorCoding::SHORT)
+            inv.push_back(0);
+
+        std::cout << "encoded: ";
+        printlnContainer(inv);
+
+        check_ok(inv, inversion_vec_gt);
+
+        auto inversion_vec_gt2 = inversion_vec_gt;
+
+        if (coder->get_coding() == InversionVectorCoding::SHORT)
+            inversion_vec_gt2.pop_back();
+
+        const auto perm = coder->decode(inversion_vec_gt2);
+
+        std::cout << "decoded: ";
+        printlnContainer(perm);
+
+        check_ok(perm, permutation_gt);
+
+        auto original_perm = permutation_gt;
+
+        std::cout << "test perm->encode->decode:";
+        const auto undone1 = coder->decode(coder->encode(permutation_gt));
+        std::cout << "after: ";
+        printlnContainer(undone1);
+        check_ok(undone1, permutation_gt);
+
+        std::cout << "test perm->decode->encode:";
+        const auto undone2 = coder->encode(coder->decode(inversion_vec_gt2));
+        std::cout << "after: ";
+        printlnContainer(undone2);
+        check_ok(undone2, inversion_vec_gt2);
+    }
 }
 
 int
 main() {
     try {
         // playground();
-        dev_permutation_inversion_sequence();
+        showcase_permutation_inversion_sequence();
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         return 1;
