@@ -6,17 +6,18 @@ TabWidth: 4
 AccessModifierOffset: -4
 ConstructorInitializerIndentWidth: 0
 # NamespaceIndentation: All
-ColumnLimit: 0
+ColumnLimit: 80
 BreakBeforeBraces: Attach
 BreakConstructorInitializers: BeforeColon
-# PackConstructorInitializers: NextLine
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
-AlignConsecutiveMacros: true
-AlignEscapedNewlines: true
+PackConstructorInitializers: NextLine
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
 AlignOperands: AlignAfterOperator
 AlwaysBreakAfterReturnType: All
 PointerAlignment: Left
 ReferenceAlignment: Left
+
 # LineEnding: DeriveLF # clang-format >= 16
 # InsertNewlineAtEOF: true # clang-format >= 16

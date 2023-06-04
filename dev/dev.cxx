@@ -1,288 +1,261 @@
-#include "algo_utils.hxx"
-#include "ea_utils.hxx"
+#include "./dev-scratchbook.hxx"
+#include "ev_alg/crossover.hxx"
+#include "ev_alg/ea_utils.hxx"
+#include "ev_alg/loss.hxx"
+#include "ev_alg/population_generation.hxx"
+#include "ev_alg/repair.hxx"
+#include "ev_alg/stop_cond.hxx"
 #include "iter_utils.hxx"
-#include "permutation.hxx"
+#include "matrix_utils.hxx"
 #include "rnd_utils.hxx"
-#include "string_utils.hxx"
-#include <algorithm>
-#include <iostream>
-#include <memory>
-#include <vector>
+#include <bits/iterator_concepts.h>
+#include <iterator>
+#include <optional>
+#include <random>
+#include <ranges>
+#include <span>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
 
-void
-playground() {
-    // CPU IMPLEMENTATION
-    constexpr unsigned int PRNG_SEED       = 100;
-    constexpr int          POPULATION_SIZE = 4;
-    constexpr int          N_LOCATIONS     = 8; // n points for TSP
-    constexpr float        MUTATION_CHANCE = 0.5;
-    constexpr int          N_POPULATIONS   = 3;
-    constexpr int          N_MIGRANTS      = 2;
-    // constexpr float MIGRATION_CHANCE = 0.25;
-    constexpr auto N_GENES = N_LOCATIONS - 1;
+struct NoOp {};
 
-    auto prng = create_rng(PRNG_SEED);
+template <typename T>
+concept is_noop_t = std::is_same_v<T, NoOp>;
 
-    // TEST MUTATION
-    std::vector<int> genome;
-    genome.reserve(16);
-    for (int i{0}; i < 16; ++i) {
-        genome.push_back(i);
-    }
-
-    // preallocate helper vector
-    // use char instead of bool, because vector<bool> is bad
-    std::vector<char> mask(N_LOCATIONS);
-
-    choice_shuffle(MUTATION_CHANCE, genome.begin(), genome.end(), prng, mask);
-
-    std::cout << "genome: ";
-    printContainer(genome);
-
-    const auto spawnRndPopulation = [=, &prng]() { return create_rnd_solution_population_tsp<int>(POPULATION_SIZE, N_LOCATIONS, prng); };
-
-    auto population = spawnRndPopulation();
-
-    const auto createDummySolution = [] {
-        std::vector<int> dummySolution;
-        dummySolution.reserve(POPULATION_SIZE * (N_LOCATIONS - 1));
-        for (int i{0}; i < POPULATION_SIZE; ++i)
-            for (int j{1}; j < N_LOCATIONS; ++j)
-                dummySolution.push_back(j);
-
-        return dummySolution;
-    };
-
-    const auto createDummySolution2 = [] {
-        std::vector<int> dummySolution;
-        dummySolution.reserve(POPULATION_SIZE * (N_LOCATIONS - 1));
-        for (int i{1}; i < POPULATION_SIZE * (N_LOCATIONS - 1); ++i)
-            dummySolution.push_back(i);
-
-        return dummySolution;
-    };
-
-    auto dummySolution = createDummySolution();
-
-    const auto printDummySolution = [&] { prettyPrintMx(dummySolution.cbegin(), POPULATION_SIZE, N_GENES); };
-
-    std::cout << "whole dummy population before mutation:\n";
-    printDummySolution();
-
-    std::vector<char> solutionMask(POPULATION_SIZE * N_LOCATIONS);
-    mutatePopulation(dummySolution.begin(), POPULATION_SIZE, N_GENES, MUTATION_CHANCE, prng, solutionMask);
-
-    std::cout << "after mutation:\n";
-    printDummySolution();
-
-    // TEST RANDOM COST MATRIX
-    const auto costMx = create_rnd_symmetric_cost_mx_tsp(N_LOCATIONS, prng);
-
-    std::cout << "Cost matrix:\n";
-    prettyPrintMx(costMx.begin(), N_LOCATIONS);
-
-    // TEST LOSS FUNCTION
-    // create vector of pointers - individuals
-    auto ind1 = solution_to_individuals(dummySolution, POPULATION_SIZE, N_GENES);
-
-    std::vector<float> losses(POPULATION_SIZE);
-    std::transform(
-        ind1.cbegin(), ind1.cend(), losses.begin(),
-        [&](auto ind) { return calcLossClosed(costMx, N_LOCATIONS, ind, ind + N_GENES); });
-
-    std::cout << "losses: ";
-    printContainer(losses);
-
-    // TEST MIGRATION
-    auto s1 = spawnRndPopulation();
-    auto s2 = spawnRndPopulation();
-
-    std::cout << "population1:\n";
-    prettyPrintMx(s1.begin(), POPULATION_SIZE, N_GENES);
-    std::cout << "population2:\n";
-    prettyPrintMx(s2.begin(), POPULATION_SIZE, N_GENES);
-
-    auto p1 = solution_to_individuals(s1, POPULATION_SIZE, N_GENES);
-    auto p2 = solution_to_individuals(s2, POPULATION_SIZE, N_GENES);
-
-    auto losses1 = calcPopulationLosses(p1, costMx, N_LOCATIONS);
-    auto losses2 = calcPopulationLosses(p2, costMx, N_LOCATIONS);
-
-    std::cout << "population1 losses: ";
-    printContainer(losses1);
-    std::cout << "population2 losses: ";
-    printContainer(losses2);
-
-    std::cout << "no. of migrants: " << N_MIGRANTS << '\n';
-
-    // FIXME: sort_by2 p<k> and losses<k> before migrateBetween
-    using PopIter               = decltype(p1.begin());
-    using LossIter              = decltype(losses1.begin());
-    constexpr bool REORDER_LOSS = true;
-    sort_by2<PopIter, LossIter, REORDER_LOSS, SortOrder::DECR>(p1.begin(), p1.begin() + POPULATION_SIZE, losses1.begin());
-    sort_by2<PopIter, LossIter, REORDER_LOSS, SortOrder::DECR>(p2.begin(), p2.begin() + POPULATION_SIZE, losses2.begin());
-    migrateBetween(p1, p2, N_GENES, losses1, losses2, N_MIGRANTS);
-
-    std::cout << "after migration:\n";
-    std::cout << "population1:\n";
-    prettyPrintMx(s1.begin(), POPULATION_SIZE, N_GENES);
-    std::cout << "population2:\n";
-    prettyPrintMx(s2.begin(), POPULATION_SIZE, N_GENES);
-
-    // test full migration
-    using Gene          = int;
-    using RawPopulation = std::vector<Gene>;
-    using PopulationVec = std::vector<RawPopulation>;
-
-    PopulationVec populations;
-
-    for (int i{0}; i < N_POPULATIONS; ++i)
-        populations.push_back(spawnRndPopulation());
-
-    using IndividualVec               = std::vector<Individual<Gene>>;
-    using PopulationsAsIndividualsVec = std::vector<IndividualVec>;
-
-    // necessary for migration and loss calculation
-    PopulationsAsIndividualsVec populationsAsIndividuals(N_POPULATIONS);
-    std::transform(
-        populations.begin(), populations.end(),
-        populationsAsIndividuals.begin(),
-        [](auto& p) { return std::move(solution_to_individuals(p, POPULATION_SIZE, N_GENES)); });
-
-    using PopulationLossVec     = std::vector<float>;
-    using PopulationsLossMatrix = std::vector<PopulationLossVec>;
-    PopulationsLossMatrix popLossMx(N_POPULATIONS);
-    std::transform(
-        populationsAsIndividuals.cbegin(), populationsAsIndividuals.cend(),
-        popLossMx.begin(),
-        [&costMx](const auto& p) { return std::move(calcPopulationLosses(p, costMx, N_LOCATIONS)); });
-
-    std::cout << "full migration test:\n";
-    std::cout << "populations:\n";
-
-    for (const auto& p : populations) {
-        printSeparationLine(3);
-        prettyPrintMx(p.begin(), POPULATION_SIZE, N_GENES);
-    }
-
-    std::cout << "loss function matrix (row - population, column - individual):\n";
-    prettyPrintMx(popLossMx);
-
-    const auto migrationDirection = getRandomMigrationDirection(prng); // +/- 1
-
-    std::cout << "migration direction: " << (migrationDirection == MigrationDirection::LEFT ? "LEFT" : "RIGHT") << '\n';
-
-    migrate(populationsAsIndividuals, popLossMx, POPULATION_SIZE, N_GENES, N_MIGRANTS, migrationDirection);
-
-    std::cout << "populations after full migration:\n";
-
-    for (const auto& p : populations) {
-        printSeparationLine(3);
-        prettyPrintMx(p.begin(), POPULATION_SIZE, N_GENES);
-    }
-
-    std::cout << "loss function matrix (row - population, column - individual):\n";
-    prettyPrintMx(popLossMx);
+template <typename T>
+[[nodiscard]] inline constexpr bool
+is_noop(T const&) noexcept {
+    return is_noop_t<T>;
 }
 
-inline void
-showcase_permutation_inversion_sequence() {
-    const auto check_ok = [](const auto& a, const auto& b) {
-        std::cout << "ok? " << yes_no(a == b) << "\n\n";
-    };
+struct EvAlgParams {
+    const CostMx costMx;
+    const int    populationSize;
+    const int    nLocations;
+    const int    nIslands;
+    const int    iterationsPerEpoch;
+    const int    nGenes;
 
-    // std::vector<int> inversion_vec_gt{3, 2, 1, 0, 0};
-    // std::vector<int> permutation_gt{3, 2, 1, 0, 4};
-    std::vector<int> inversion_vec_gt{1, 1, 2, 1, 0};
-    std::vector<int> permutation_gt{4, 0, 1, 3, 2};
+    EvAlgParams() = delete;
+    [[nodiscard]] EvAlgParams(const CostMx costMx, const int populationSize,
+                              const int nLocations, const int nIslands,
+                              const int iterationsPerEpoch,
+                              const int nGenes) noexcept
+    : costMx(costMx),
+      populationSize(populationSize),
+      nLocations(nLocations),
+      nIslands(nIslands),
+      iterationsPerEpoch(iterationsPerEpoch),
+      nGenes(nGenes) {}
+};
 
-    using Iter            = decltype(inversion_vec_gt.cbegin());
-    constexpr auto Coding = InversionVectorCoding::SAME;
+struct HistoryEntry {
+    const float minLoss;
+    const float maxLoss;
+    const float meanLoss;
+    const float stddev;
+};
 
-    const auto permutation = inversion_vector_to_permutation<Iter, Coding>(inversion_vec_gt.cbegin(), inversion_vec_gt.size());
+template <typename RndPopulationGenerator, typename MutationOp,
+          typename CrossOp, typename LossFn, typename MigrationOp,
+          typename StopCondition, typename PRNG, typename RepairOp = NoOp,
+          typename Coder = NoOp>
+struct IslandEvolutionaryAlgorithm {
+    using GeneT                 = int;
+    using PopulationLossHistory = std::vector<HistoryEntry>;
+    using PopulationMemory      = std::vector<GeneT>;
 
-    std::cout << "permutation ground-truth: ";
-    printlnContainer(permutation_gt);
+    IslandEvolutionaryAlgorithm() = delete;
+    [[nodiscard]] IslandEvolutionaryAlgorithm(
+        RndPopulationGenerator rndPopulationGenerator, MutationOp mutationOp,
+        CrossOp crossOp, LossFn lossFn, MigrationOp migrationOp,
+        StopCondition stopCondition, PRNG prng, EvAlgParams params,
+        RepairOp repairOp = NoOp(), Coder coder = NoOp())
+    : rndPopulationGenerator(rndPopulationGenerator),
+      mutationOp(mutationOp),
+      crossoverOp(crossOp),
+      migrationOp(migrationOp),
+      stopCondition(stopCondition),
+      prng(prng),
+      params(params),
+      repairOp(repairOp),
+      coder(coder),
+      islands(params.nIslands) {
+        // Copy loss functions, because they have vectors with loss function
+        // values. They will be needed for migration for each island.
+        lossFunPerIsland.reserve(params.nIslands);
+        lossFunPerIsland.push_back(std::move(lossFn));
 
-    std::cout << "permutation: ";
-    printlnContainer(permutation);
-
-    check_ok(permutation, permutation_gt);
-
-    const auto inversion_vec = permutation_to_inversion_vector<Iter, Coding>(permutation_gt.cbegin(), permutation_gt.size());
-
-    std::cout << "inversion vector ground-truth: ";
-    printlnContainer(inversion_vec_gt);
-
-    std::cout << "to inversion vector: ";
-    printlnContainer(inversion_vec);
-
-    check_ok(inversion_vec, inversion_vec_gt);
-
-    std::cout << "abstract coders:\n";
-    std::vector<std::unique_ptr<AbstractPermutationCoder>> coders;
-    coders.push_back(std::make_unique<PolymorphicPermutationCoderSame>());
-    coders.push_back(std::make_unique<PolymorphicPermutationCoderShort>());
-
-    for (const auto& coder : coders) {
-        std::cout << "coder: " << coder->get_coding_str() << '\n';
-
-        std::cout << "permutation ground-truth: ";
-        printlnContainer(permutation_gt);
-
-        std::cout << "inversion vector ground-truth: ";
-        printlnContainer(inversion_vec_gt);
-
-        auto inv = coder->encode(permutation_gt);
-
-        // for SHORT coding, to check we must append 0
-        if (coder->get_coding() == InversionVectorCoding::SHORT)
-            inv.push_back(0);
-
-        std::cout << "encoded: ";
-        printlnContainer(inv);
-
-        check_ok(inv, inversion_vec_gt);
-
-        auto inversion_vec_gt2 = inversion_vec_gt;
-
-        if (coder->get_coding() == InversionVectorCoding::SHORT)
-            inversion_vec_gt2.pop_back();
-
-        const auto perm = coder->decode(inversion_vec_gt2);
-
-        std::cout << "decoded: ";
-        printlnContainer(perm);
-
-        check_ok(perm, permutation_gt);
-
-        auto original_perm = permutation_gt;
-
-        std::cout << "test perm->encode->decode:";
-        const auto undone1 = coder->decode(coder->encode(permutation_gt));
-        std::cout << "after: ";
-        printlnContainer(undone1);
-        check_ok(undone1, permutation_gt);
-
-        std::cout << "test perm->decode->encode:";
-        const auto undone2 = coder->encode(coder->decode(inversion_vec_gt2));
-        std::cout << "after: ";
-        printlnContainer(undone2);
-        check_ok(undone2, inversion_vec_gt2);
+        for (const auto _ : std::ranges::iota_view(0, params.nIslands - 1))
+            lossFunPerIsland.push_back(lossFunPerIsland[0]);
     }
+
+    void
+    operator()() {
+        initialize_islands();
+        run_island(0);
+    }
+
+private:
+    RndPopulationGenerator rndPopulationGenerator;
+    MutationOp             mutationOp;
+    CrossOp                crossoverOp;
+    std::vector<LossFn>    lossFunPerIsland;
+    MigrationOp            migrationOp;
+    StopCondition          stopCondition;
+    PRNG                   prng;
+    const EvAlgParams      params;
+    RepairOp               repairOp;
+    Coder                  coder;
+
+    std::vector<PopulationMemory> islands;
+
+    // results
+    std::vector<PopulationLossHistory> lossHistories;
+    std::vector<GeneT>                 bestSolution;
+
+    using PopulationMxView = MatrixView<GeneT*>;
+
+    void
+    initialize_islands() {
+        for (auto& islandPopulation : islands)
+            islandPopulation = std::move(rndPopulationGenerator(prng));
+    }
+
+    void
+    run_island(const std::size_t islandIdx) {
+        auto&            population = islands[islandIdx];
+        PopulationMxView populationView(population.data(),
+                                        params.populationSize, params.nGenes);
+
+        auto individualPtrsView = solution_to_individuals(
+            population, params.populationSize, params.nGenes);
+
+        mutatePopulation(populationView);
+        repairPopulation(populationView);
+        gradePopulation(islandIdx, individualPtrsView);
+        // elitist selection - best solutions at the beginning
+        // sorts only pointers, they will be used for crossover
+        sortPopulation(islandIdx, individualPtrsView);
+        std::cout << '\n';
+        std::cout << "before: \n";
+        prettyPrintMx(populationView);
+        breedPopulation(individualPtrsView);
+        std::cout << "after: \n";
+        prettyPrintMx(populationView);
+    }
+
+    void
+    mutatePopulation(PopulationMxView& population) {
+        for (auto row : population.rows())
+            mutationOp(row.data(), prng);
+    }
+
+    void
+    repairPopulation(PopulationMxView& population) {
+        if constexpr (is_noop_t<RepairOp>)
+            return;
+        else
+            for (auto row : population.rows())
+                repairOp(row.begin(), row.end());
+    }
+
+    void
+    gradePopulation(const std::size_t islandIdx, auto& individualPtrs) {
+        lossFunPerIsland[islandIdx](individualPtrs);
+    }
+
+    /// individualPtrs - vector of pointers to the beginnings of each individual
+    /// solution
+    /// This function sorts only pointers, so it is cheap
+    void
+    sortPopulation(const std::size_t islandIdx, auto& individualPtrs) {
+        constexpr bool REORDER_LOSS = true;
+
+        auto& losses = lossFunPerIsland[islandIdx].values;
+
+        using PopIter  = decltype(individualPtrs.begin());
+        using LossIter = decltype(losses.begin());
+
+        sort_by2<PopIter, LossIter, REORDER_LOSS, SortOrder::DECR>(
+            individualPtrs.begin(), individualPtrs.end(), losses.begin());
+    }
+
+    void
+    breedPopulation(auto& sortedParentPtrs) {
+        for (int i{0}; i < sortedParentPtrs.size(); i += 2) {
+            const auto p1Ptr(sortedParentPtrs[i]);
+            const auto p2Ptr(sortedParentPtrs[i + 1]);
+
+            crossoverOp(p1Ptr, p1Ptr + params.nGenes, p2Ptr, prng);
+        }
+    }
+};
+
+inline void
+show_ev_alg_tsp() {
+    const std::size_t prng_seed                 = 0;
+    const int         iterationsPerEpoch        = 10;
+    const int         nEpochs                   = 6;
+    const int         nEpochsWithourImprovement = 2;
+
+    const int   nLocations       = 16;
+    const float minCost          = 1e-1f;
+    const float maxCost          = 1e1;
+    const int   islandPopulation = 16;
+    const int   nIslands         = 4;
+    // in normal, same-size coding, the first and last (0) location is implicit
+    // if special solution coder is used, this will differ
+    const int   nGenes         = nLocations - 1;
+    const float mutationChance = 0.1f;
+    const float migrationRatio = 0.1f;
+    const auto  nMigrants =
+        static_cast<int>(std::max(1.0f, migrationRatio * islandPopulation));
+
+    auto       prng = create_rng(prng_seed);
+    const auto costMx =
+        create_rnd_symmetric_cost_mx_tsp(nLocations, prng, minCost, maxCost);
+
+    using LocationIdxT = int;
+    // this might differ for special solution coder
+    using GeneT = LocationIdxT;
+
+    static_assert(std::same_as<GeneT, int>, "non-int genes not supported");
+
+    RndPopulationGeneratorOTSP populationGenerator{islandPopulation,
+                                                   nLocations};
+    Mutator                    mutator(nGenes, mutationChance);
+    CrossoverPMX2PointAdapter  crossover{};
+    LossFnClosed               lossFn(nLocations, &costMx, islandPopulation);
+    MigrationOp<GeneT>         migrator(islandPopulation, nGenes, nMigrants);
+    StopCondition     stopCondition(nEpochs, nEpochsWithourImprovement);
+    const EvAlgParams params(costMx, islandPopulation, nLocations, nIslands,
+                             iterationsPerEpoch, nGenes);
+    // those are optional
+    auto repairOp = NoOp();
+    auto coder    = NoOp();
+
+    // PMX
+    IslandEvolutionaryAlgorithm algo(populationGenerator, mutator, crossover,
+                                     lossFn, migrator, stopCondition, prng,
+                                     params, repairOp, coder);
+    algo();
 }
 
 int
 main() {
     try {
         // playground();
-        showcase_permutation_inversion_sequence();
+        // showcase_permutation_inversion_sequence();
+        // pmx_crossover_showcase();
+        show_ev_alg_tsp();
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         return 1;
     } catch (...) {
         std::cerr << "UNKNOWN ERROR!\n";
-        return 1;
+        throw;
     }
     return 0;
 }

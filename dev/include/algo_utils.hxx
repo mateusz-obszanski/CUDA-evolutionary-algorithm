@@ -5,14 +5,12 @@
 #include <ranges>
 #include <vector>
 
-template <
-    typename InIter, typename OutIter,
-    typename StencilIter,
-    std::predicate<typename StencilIter::value_type> PredicateT>
+template <typename InIter, typename OutIter, typename StencilIter,
+          std::predicate<typename std::iterator_traits<StencilIter>::value_type>
+              PredicateT>
 inline void
-gather_if(
-    InIter begin, InIter end,
-    OutIter result, StencilIter stencil, PredicateT predicate) {
+gather_if(InIter begin, InIter end, OutIter result, StencilIter stencil,
+          PredicateT predicate) {
 
     while (begin != end) {
         if (predicate(*stencil)) {
@@ -25,34 +23,34 @@ gather_if(
     }
 }
 
-template <
-    typename InIter, typename OutIter,
-    std::predicate<typename InIter::value_type> PredicateT>
+template <typename InIter, typename OutIter,
+          std::predicate<typename std::iterator_traits<InIter>::value_type>
+              PredicateT>
 inline void
 gather_if(InIter begin, InIter end, OutIter result, PredicateT predicate) {
     // treat input iterator as stencil
     gather_if(begin, end, result, begin, predicate);
 }
 
-template <
-    typename InIter, typename OutIter,
-    std::predicate<typename InIter::value_type> PredicateT>
+template <typename InIter, typename OutIter,
+          std::predicate<typename std::iterator_traits<InIter>::value_type>
+              PredicateT>
 inline void
-gather_indices_if(
-    InIter begin, InIter end, PredicateT predicate, OutIter result) {
+gather_indices_if(InIter begin, InIter end, PredicateT predicate,
+                  OutIter result) {
 
-    using IndexT = typename OutIter::container_type::value_type;
-
-    const IndexT                           n = std::distance(begin, end);
-    std::ranges::iota_view<IndexT, IndexT> indices{0, n};
+    const auto n = std::distance(begin, end);
+    using Idx    = std::remove_const<decltype(n)>::type;
+    std::ranges::iota_view<Idx, Idx> indices{0, n};
     gather_if(indices.begin(), indices.end(), result, begin, predicate);
 }
 
 template <typename MaskIter, typename PRNG, typename Idx = long>
 inline void
-generate_shuffle_with_mask_indices(
-    std::vector<Idx>& srcIdxs, std::vector<Idx>& targetIdxs,
-    MaskIter maskBegin, MaskIter maskEnd, PRNG& prng) {
+generate_shuffle_with_mask_indices(std::vector<Idx>& srcIdxs,
+                                   std::vector<Idx>& targetIdxs,
+                                   MaskIter maskBegin, MaskIter maskEnd,
+                                   PRNG& prng) {
 
     // clear content, does not shrink allocated memory
     srcIdxs.clear();
@@ -70,10 +68,11 @@ generate_shuffle_with_mask_indices(
 /// reorders according to arbitrary mapping of positions
 template <typename InIter, typename IdxIter>
 inline void
-reorder(InIter begin, InIter end, IdxIter srcIdxsBegin, IdxIter srcIdxsEnd, IdxIter dstIdxsBegin) {
+reorder(InIter begin, InIter end, IdxIter srcIdxsBegin, IdxIter srcIdxsEnd,
+        IdxIter dstIdxsBegin) {
     const auto nIndices = std::distance(srcIdxsBegin, srcIdxsEnd);
 
-    using ItemT = InIter::value_type;
+    using ItemT = std::iterator_traits<InIter>::value_type;
     std::vector<ItemT> readOnlySrc{begin, end};
 
     for (int i{0}; i < nIndices; ++i) {
@@ -88,7 +87,7 @@ reorder(InIter begin, InIter end, IdxIter srcIdxsBegin, IdxIter srcIdxsEnd, IdxI
 template <typename InIter, typename IdxIter>
 inline void
 reorder(InIter begin, InIter end, IdxIter idx) {
-    using ItemT = InIter::value_type;
+    using ItemT = std::iterator_traits<InIter>::value_type;
     std::vector<ItemT> readOnlySrc{begin, end};
 
     const auto n = std::distance(begin, end);
@@ -103,20 +102,20 @@ reorder(InIter begin, InIter end, IdxIter idx) {
 /// in c++ :(
 template <typename InIter, typename MaskIter, typename PRNG>
 inline void
-shuffle_masked(
-    InIter begin, InIter end, MaskIter maskBegin, PRNG& prng) {
+shuffle_masked(InIter begin, InIter end, MaskIter maskBegin, PRNG& prng) {
 
     using IndexVec = std::vector<long>;
 
     // helper vectors
-    // no preallocation since it is not certain, how many indices will be necessary
-    // allocation will happen on-demand
+    // no preallocation since it is not certain, how many indices will be
+    // necessary allocation will happen on-demand
     IndexVec srcIdxs, targetIdxs;
 
     const auto length  = std::distance(begin, end);
     const auto maskEnd = maskBegin + length;
 
-    generate_shuffle_with_mask_indices(srcIdxs, targetIdxs, maskBegin, maskEnd, prng);
+    generate_shuffle_with_mask_indices(srcIdxs, targetIdxs, maskBegin, maskEnd,
+                                       prng);
 
     reorder(begin, end, srcIdxs.cbegin(), srcIdxs.cend(), targetIdxs.cbegin());
 }
@@ -124,8 +123,8 @@ shuffle_masked(
 /// mask - preallocated helper vector, must have the same size as arr
 template <typename InIter, typename PRNG, typename Idx = long>
 inline void
-choice_shuffle(
-    const float probability, InIter begin, InIter end, PRNG& prng, std::vector<char>& mask) {
+choice_shuffle(InIter begin, InIter end, const float probability, PRNG& prng,
+               std::vector<char>& mask) {
 
     std::bernoulli_distribution dist(probability);
 
@@ -139,14 +138,15 @@ choice_shuffle(
 /// allocation will happen on-demand
 template <typename MaskIter, typename PRNG, typename Idx = long>
 inline void
-rnd_shuffle_indices(
-    std::vector<Idx>& srcIdxs, std::vector<Idx>& targetIdxs,
-    const float probability, MaskIter maskBegin, MaskIter maskEnd, PRNG& prng) {
+rnd_shuffle_indices(std::vector<Idx>& srcIdxs, std::vector<Idx>& targetIdxs,
+                    const float probability, MaskIter maskBegin,
+                    MaskIter maskEnd, PRNG& prng) {
     std::bernoulli_distribution dist(probability);
 
     // fill with random numbers
     std::generate(maskBegin, maskEnd, [&] { return dist(prng); });
-    generate_shuffle_with_mask_indices(srcIdxs, targetIdxs, maskBegin, maskEnd, prng);
+    generate_shuffle_with_mask_indices(srcIdxs, targetIdxs, maskBegin, maskEnd,
+                                       prng);
 }
 
 template <typename Iter, typename IterMask>
@@ -154,10 +154,22 @@ inline void
 swap_masked(Iter begin1, Iter end1, Iter begin2, IterMask mask) {
     while (begin1 != end1) {
         if (*mask)
-            std::swap(begin1, begin2);
+            std::swap(*begin1, *begin2);
 
         ++begin1;
         ++begin2;
         ++mask;
     }
+}
+
+template <typename T1, typename T2>
+concept Swappable =
+    std::constructible_from<T1, T2> and std::constructible_from<T2, T1>;
+
+template <typename T1, typename T2>
+    requires Swappable<T1, T2>
+inline void
+swap_if(T1& x, T2& y, bool pred) {
+    if (pred)
+        std::swap(x, y);
 }

@@ -8,6 +8,8 @@ CompileFlags:
       # to suppress unknown opts set by e.g. Cmake in some parent directory
       -Wno-unknown-warning-option,
       -Werr,
+      -Wconversion,
+      # adds "include/" directory
       -Iinclude,
       -I-
     ]

@@ -7,8 +7,7 @@
 /// vector of the same length or shorter by one,
 /// because the last element of inversion vector
 /// is always 0, which can be implicitly assumed
-enum class InversionVectorCoding { SAME,
-                                   SHORT };
+enum class InversionVectorCoding { SAME, SHORT };
 
 [[nodiscard]] inline constexpr std::string
 inversion_vec_coding_to_str(InversionVectorCoding coding) noexcept {
@@ -20,16 +19,14 @@ inversion_vec_coding_to_full_str(InversionVectorCoding coding) noexcept {
     return "InversionVectorCoding::" + inversion_vec_coding_to_str(coding);
 }
 
-/// assumption: perm elements in {0, 1, ..., n - 1}
-template <
-    typename Iter,
-    InversionVectorCoding CODING = InversionVectorCoding::SHORT>
-[[nodiscard]] inline std::vector<int>
-permutation_to_inversion_vector(Iter perm, int n) {
+/// inv - output
+/// inv must point to memory with space for n (SAME) or n-1 (SHORT) elemenst
+template <typename Iter, typename IterOut,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+inline void
+permutation_to_inversion_vector(Iter perm, int n, IterOut inv) {
     if constexpr (CODING == InversionVectorCoding::SHORT)
         --n;
-
-    std::vector<int> inv(n);
 
     for (int i{0}; i < n; ++i) {
         int m = 0;
@@ -46,19 +43,80 @@ permutation_to_inversion_vector(Iter perm, int n) {
 
         inv[i] = inv_i;
     }
+}
+///
+/// inv - output
+/// inv must point to memory with space for n (SAME) or n-1 (SHORT) elemenst
+template <typename T, typename IterOut,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+inline void
+permutation_to_inversion_vector(std::span<T const> perm, IterOut inv) {
+    permutation_to_inversion_vector(perm.data(), perm.size(), inv);
+}
+
+/// assumption: perm elements in {0, 1, ..., n - 1}
+template <typename Iter,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+[[nodiscard]] inline std::vector<int>
+permutation_to_inversion_vector(Iter perm, int n) {
+    int inv_length;
+
+    if constexpr (CODING == InversionVectorCoding::SHORT)
+        inv_length = n - 1;
+    else
+        inv_length = n;
+
+    std::vector<int> inv(inv_length);
+
+    permutation_to_inversion_vector<Iter, decltype(inv.begin()), CODING>(
+        perm, n, inv.begin());
 
     return inv;
 }
 
-template <InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+template <typename T,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
 [[nodiscard]] inline auto
-permutation_to_inversion_vector(std::span<int const> perm) {
-    return permutation_to_inversion_vector<decltype(perm.data()), CODING>(perm.data(), perm.size());
+permutation_to_inversion_vector(std::span<T const> perm) {
+    return permutation_to_inversion_vector<decltype(perm.data()), CODING>(
+        perm.data(), perm.size());
 }
 
-template <
-    typename Iter,
-    InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+/// output: perm
+template <typename Iter, typename IterOut,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+inline void
+inversion_vector_to_permutation(Iter inv, int n, IterOut perm) {
+    std::size_t perm_size;
+
+    if constexpr (CODING == InversionVectorCoding::SHORT)
+        perm_size = n + 1;
+    else
+        perm_size = n;
+
+    auto freeIndices = range_vec<int>(perm_size);
+
+    for (int i{0}; i < n; ++i) {
+        const auto inv_i         = inv[i];
+        perm[freeIndices[inv_i]] = i;
+        freeIndices.erase(freeIndices.begin() + inv_i);
+    }
+
+    if constexpr (CODING == InversionVectorCoding::SHORT)
+        perm[freeIndices[0]] = n;
+}
+///
+/// output: perm
+template <typename T, typename IterOut,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
+inline void
+inversion_vector_to_permutation(std::span<T const> inv, IterOut perm) {
+    inversion_vector_to_permutation<decltype(inv.data()), IterOut, CODING>(
+        inv.data(), inv.size(), perm);
+}
+
+template <typename Iter,
+          InversionVectorCoding CODING = InversionVectorCoding::SHORT>
 [[nodiscard]] inline std::vector<int>
 inversion_vector_to_permutation(Iter inv, int n) {
     std::size_t perm_size;
@@ -68,17 +126,10 @@ inversion_vector_to_permutation(Iter inv, int n) {
     else
         perm_size = n;
 
-    auto             freeIndices = range_vec<int>(perm_size);
     std::vector<int> permutation(perm_size);
 
-    for (int i{0}; i < n; ++i) {
-        const auto inv_i                = inv[i];
-        permutation[freeIndices[inv_i]] = i;
-        freeIndices.erase(freeIndices.begin() + inv_i);
-    }
-
-    if constexpr (CODING == InversionVectorCoding::SHORT)
-        permutation[freeIndices[0]] = n;
+    inversion_vector_to_permutation<Iter, decltype(permutation.begin()),
+                                    CODING>(inv, n, permutation.begin());
 
     return permutation;
 }
@@ -86,7 +137,8 @@ inversion_vector_to_permutation(Iter inv, int n) {
 template <InversionVectorCoding CODING = InversionVectorCoding::SHORT>
 [[nodiscard]] inline auto
 inversion_vector_to_permutation(std::span<int const> const inv) {
-    return inversion_vector_to_permutation<decltype(inv.data()), CODING>(inv.data(), inv.size());
+    return inversion_vector_to_permutation<decltype(inv.data()), CODING>(
+        inv.data(), inv.size());
 }
 
 template <InversionVectorCoding CODING = InversionVectorCoding::SHORT>
@@ -99,7 +151,8 @@ struct PermutationCoder {
 
     [[nodiscard]] inline static auto
     encode(std::span<const int> const perm) {
-        return permutation_to_inversion_vector<CODING>(perm);
+        return permutation_to_inversion_vector<decltype(perm)::value_type,
+                                               CODING>(perm);
     }
 
     template <typename Iter>
@@ -193,10 +246,14 @@ using PolymorphicPermutationCoderShort =
 template <typename Iter>
 inline void
 repair_inversion_vector(Iter begin, Iter end) {
-    using T = typename Iter::value_type;
+    using T = typename std::iterator_traits<Iter>::value_type;
 
-    const T                      n = std::distance(begin, end);
-    const std::ranges::iota_view idx(n);
+    const T                            n = std::distance(begin, end);
+    const std::ranges::iota_view<T, T> idx(0, n);
 
-    std::transform(idx.begin(), idx.end(), begin, [=, &begin](const auto& i) { return begin[i] % n - 1 - i; });
+    const auto moduloIdx = [=, &begin](const auto& i) {
+        return begin[i] % n - 1 - i;
+    };
+
+    std::transform(idx.begin(), idx.end(), begin, moduloIdx);
 }
