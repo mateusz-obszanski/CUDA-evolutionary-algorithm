@@ -1,7 +1,8 @@
 #pragma once
+#include "./common_concepts.hxx"
 #include "./io_utils.hxx"
+#include "./iter_utils.hxx"
 #include "./jump_iterator.hxx"
-#include "common_concepts.hxx"
 #include <bits/iterator_concepts.h>
 #include <iostream>
 #include <iterator>
@@ -10,11 +11,11 @@
 
 template <typename Iter>
 inline void
-printMx(Iter begin, const int nrows, const int ncols) {
+print_mx(Iter begin, const int nrows, const int ncols) {
     std::cout << "[\n";
 
     for (int row{0}; row < nrows; ++row) {
-        printIter(begin, begin + ncols);
+        print_iter(begin, begin + ncols);
         begin += ncols;
     }
 
@@ -23,7 +24,8 @@ printMx(Iter begin, const int nrows, const int ncols) {
 
 namespace {
 
-template <std::contiguous_iterator Iter> struct MatrixRowIter {
+template <std::contiguous_iterator Iter>
+struct MatrixRowIter {
 private:
     using RowIter       = JumpIterator<Iter>;
     using RowIterTraits = std::iterator_traits<RowIter>;
@@ -37,7 +39,7 @@ public:
     using reference         = value_type;
 
     MatrixRowIter() = delete;
-    MatrixRowIter(Iter data, int rowLength) : row(data, rowLength) {}
+    MatrixRowIter(Iter data, unsigned int rowLength) : row(data, rowLength) {}
 
     reference
     operator*() {
@@ -162,9 +164,11 @@ private:
     RowIter row;
 };
 
-template <std::contiguous_iterator Iter> struct MatrixViewRowIterProxy {
+template <std::contiguous_iterator Iter>
+struct MatrixViewRowIterProxy {
     MatrixViewRowIterProxy() = delete;
-    [[nodiscard]] MatrixViewRowIterProxy(Iter ptrData, int nrows, int rowLength)
+    [[nodiscard]] MatrixViewRowIterProxy(Iter ptrData, unsigned int nrows,
+                                         unsigned int rowLength)
     : ptrData(ptrData), nrows(nrows), rowLength(rowLength) {}
 
     auto
@@ -178,14 +182,15 @@ template <std::contiguous_iterator Iter> struct MatrixViewRowIterProxy {
     }
 
 private:
-    Iter const ptrData;
-    const int  nrows;
-    const int  rowLength;
+    Iter const         ptrData;
+    const unsigned int nrows;
+    const unsigned int rowLength;
 };
 
-template <typename Iter> struct MatrixViewColIterProxy {
+template <typename Iter>
+struct MatrixViewColIterProxy {
     MatrixViewColIterProxy() = delete;
-    [[nodiscard]] MatrixViewColIterProxy(Iter ptrData, int ncols)
+    [[nodiscard]] MatrixViewColIterProxy(Iter ptrData, unsigned int ncols)
     : ptrData(ptrData), ncols(ncols) {}
 
     auto
@@ -199,23 +204,24 @@ template <typename Iter> struct MatrixViewColIterProxy {
     }
 
 private:
-    const Iter ptrData;
-    const int  ncols;
+    const Iter         ptrData;
+    const unsigned int ncols;
 };
 
 } // namespace
 
-template <typename IterT> class MatrixView {
+template <typename IterT>
+class MatrixView {
 public:
     using pointer    = IterT;
     using value_type = std::iterator_traits<IterT>::value_type;
-    using Size       = std::pair<int, int>;
+    using Size       = std::pair<unsigned int, unsigned int>;
     using View       = std::span<value_type>;
 
-    [[nodiscard]] MatrixView(pointer p, const Size size)
-    : mMemory{p}, mSize{size} {};
-    [[nodiscard]] MatrixView(pointer p, const int n) : MatrixView(p, {n, n}) {}
-    [[nodiscard]] MatrixView(pointer p, const int nrows, const int ncols)
+    [[nodiscard]] MatrixView(pointer p, Size size) : mMemory{p}, mSize{size} {};
+    [[nodiscard]] MatrixView(pointer p, unsigned int n)
+    : MatrixView(p, {n, n}) {}
+    [[nodiscard]] MatrixView(pointer p, unsigned int nrows, unsigned int ncols)
     : MatrixView(p, {nrows, ncols}) {}
 
     [[nodiscard]] pointer
@@ -224,26 +230,26 @@ public:
     }
 
     [[nodiscard]] value_type
-    get(const int row, const int col) const {
+    get(unsigned int row, unsigned int col) const {
         return mMemory[linear_idx(row, col)];
     }
 
     void
-    set(const int row, const int col, const value_type elem) {
+    set(const unsigned int row, const unsigned int col, const value_type elem) {
         mMemory[linear_idx(row, col)] = elem;
     }
 
     [[nodiscard]] View
-    get_row(const int i) const noexcept {
-        return {row_begin(i), static_cast<unsigned int>(width())};
+    get_row(const unsigned int i) const noexcept {
+        return {row_begin(i), width()};
     }
 
-    [[nodiscard]] int
+    [[nodiscard]] auto
     width() const noexcept {
         return mSize.second;
     }
 
-    [[nodiscard]] int
+    [[nodiscard]] auto
     height() const noexcept {
         return mSize.first;
     }
@@ -255,12 +261,12 @@ public:
 
     void
     print() const {
-        printMx(mMemory, mSize.first, mSize.second);
+        print_mx(mMemory, mSize.first, mSize.second);
     }
 
     void
     pretty_print() const {
-        prettyPrintMx(mMemory, mSize.first, mSize.second);
+        pretty_print_mx(mMemory, mSize.first, mSize.second);
     }
 
     auto
@@ -275,35 +281,35 @@ private:
     pointer mMemory;
     Size    mSize;
 
-    [[nodiscard]] int
-    row_offset(const int i) const noexcept {
+    [[nodiscard]] auto
+    row_offset(const unsigned i) const noexcept {
         return i * width();
     }
 
-    [[nodiscard]] int
-    linear_idx(const int row, const int col) const noexcept {
+    [[nodiscard]] auto
+    linear_idx(const unsigned row, const unsigned int col) const noexcept {
         return row_offset(row) + col;
     }
 
     [[nodiscard]] pointer
-    row_begin(const int i) const noexcept {
+    row_begin(const unsigned int i) const noexcept {
         return mMemory + row_offset(i);
     }
 };
 
 inline auto&
-printColumnIdxs(const int ncols, const std::size_t maxElemWidth,
-                const std::size_t lpadding        = 0,
-                const std::size_t separatorLength = 1,
-                std::ostream&     out             = std::cout) {
+print_column_idxs(const unsigned int ncols, const std::size_t maxElemWidth,
+                  const std::size_t lpadding        = 0,
+                  const std::size_t separatorLength = 1,
+                  std::ostream&     out             = std::cout) {
 
     const std::size_t maxColIdxWidth = (ncols - 1) / 10 + 1;
     const std::size_t maxColWidth    = std::max(maxColIdxWidth, maxElemWidth);
 
     // additional padding by index column length
-    printPadding(lpadding);
+    print_padding(lpadding);
 
-    for (int i{0}; i < ncols; ++i)
+    for (unsigned int i{0}; i < ncols; ++i)
         out << to_lpad(maxColWidth, i) << spaces(separatorLength);
 
     return out;
@@ -311,7 +317,7 @@ printColumnIdxs(const int ncols, const std::size_t maxElemWidth,
 
 template <typename Iter>
 inline void
-prettyPrintMx(MatrixView<Iter> const& mx) {
+pretty_print_mx(MatrixView<Iter> const& mx) {
     const auto nrows = mx.height();
     const auto ncols = mx.width();
     const auto begin = mx.data();
@@ -324,7 +330,7 @@ prettyPrintMx(MatrixView<Iter> const& mx) {
 
     const auto strElems = stringify_many(begin, end);
     const auto maxStrWidth =
-        std::max_element(strElems.cbegin(), strElems.cend(), cmpStrByLength)
+        std::max_element(strElems.cbegin(), strElems.cend(), cmp_str_by_length)
             ->length();
 
     // print header with column indices
@@ -332,19 +338,19 @@ prettyPrintMx(MatrixView<Iter> const& mx) {
 
     const auto columnHeaderPadding = maxRowIdxWidth + idxColSep.length();
 
-    printColumnIdxs(ncols, maxStrWidth, columnHeaderPadding,
-                    elemSeparator.length());
-    printSeparationLine(columnHeaderPadding +
-                        ncols * (maxStrWidth + elemSeparator.length()));
+    print_column_idxs(ncols, maxStrWidth, columnHeaderPadding,
+                      elemSeparator.length());
+    print_separation_line(columnHeaderPadding +
+                          ncols * (maxStrWidth + elemSeparator.length()));
 
     const auto printIndexedRow = [&](const int row) {
         const auto printElem = [=, &mx](const int row, const int col) {
-            printPadded(maxStrWidth, mx.get(row, col));
+            print_padded(maxStrWidth, mx.get(row, col));
         };
 
         // print current row index
         const auto rowIdxColWidth = maxRowIdxWidth;
-        printPadded(rowIdxColWidth, row);
+        print_padded(rowIdxColWidth, row);
         std::cout << idxColSep;
 
         // print row of matrix elements, excluding the last one
@@ -366,14 +372,14 @@ prettyPrintMx(MatrixView<Iter> const& mx) {
 
 template <typename Iter>
 inline void
-prettyPrintMx(Iter begin, const int nrows, const int ncols) {
+pretty_print_mx(Iter begin, unsigned int nrows, unsigned int ncols) {
     const MatrixView mx(begin, {nrows, ncols});
-    prettyPrintMx(mx);
+    pretty_print_mx(mx);
 }
 
 template <typename T>
 inline void
-prettyPrintMx(std::vector<std::vector<T>>& mx) {
+pretty_print_mx(std::vector<std::vector<T>>& mx) {
     const std::string elemSeparator{" "};
     const std::string idxColSep{" | "};
 
@@ -385,7 +391,8 @@ prettyPrintMx(std::vector<std::vector<T>>& mx) {
     for (const auto& row : mx) {
         const auto strElems = stringify_many(row.cbegin(), row.cend());
         const auto maxRowStrWidth =
-            std::max_element(strElems.cbegin(), strElems.cend(), cmpStrByLength)
+            std::max_element(strElems.cbegin(), strElems.cend(),
+                             cmp_str_by_length)
                 ->length();
 
         if (maxStrWidth < maxRowStrWidth)
@@ -397,19 +404,19 @@ prettyPrintMx(std::vector<std::vector<T>>& mx) {
 
     const auto columnHeaderPadding = maxRowIdxWidth + idxColSep.length();
 
-    printColumnIdxs(ncols, maxStrWidth, columnHeaderPadding,
-                    elemSeparator.length());
-    printSeparationLine(columnHeaderPadding +
-                        ncols * (maxStrWidth + elemSeparator.length()));
+    print_column_idxs(ncols, maxStrWidth, columnHeaderPadding,
+                      elemSeparator.length());
+    print_separation_line(columnHeaderPadding +
+                          ncols * (maxStrWidth + elemSeparator.length()));
 
     const auto printIndexedRow = [&](const int row) {
         const auto printElem = [=, &mx](const int row, const int col) {
-            printPadded(maxStrWidth, mx[row][col]);
+            print_padded(maxStrWidth, mx[row][col]);
         };
 
         // print current row index
         const auto rowIdxColWidth = maxRowIdxWidth;
-        printPadded(rowIdxColWidth, row);
+        print_padded(rowIdxColWidth, row);
         std::cout << idxColSep;
 
         // print row of matrix elements, excluding the last one
@@ -431,13 +438,13 @@ prettyPrintMx(std::vector<std::vector<T>>& mx) {
 
 template <typename Iter>
 inline void
-prettyPrintMx(Iter begin, const int n) {
-    prettyPrintMx(begin, n, n);
+pretty_print_mx(Iter begin, const int n) {
+    pretty_print_mx(begin, n, n);
 }
 
 /// print square matrix
 template <typename Iter>
 inline void
-printMx(Iter begin, const std::size_t n) {
-    printMx(begin, n, n);
+print_mx(Iter begin, const std::size_t n) {
+    print_mx(begin, n, n);
 }

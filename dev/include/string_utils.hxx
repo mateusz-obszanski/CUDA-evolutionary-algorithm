@@ -1,20 +1,49 @@
 #pragma once
+#include "./common_concepts.hxx"
 #include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
-inline std::string
-lpad(const std::size_t width, const std::string& str, const char padChar = ' ') {
-    return std::string(width < str.length() ? 0 : width - str.length(), padChar) + str;
+template <std::integral T>
+[[nodiscard]] inline std::string
+to_hex(T x) {
+    return (std::ostringstream() << "0x" << std::hex << x).str();
+}
+
+template <TriviallyStringifiable T>
+[[nodiscard]] inline std::string
+stringify(T const& x) {
+    return std::to_string(x);
+}
+
+template <SStreamStringifiable T>
+[[nodiscard]] inline std::string
+stringify(T const& x) {
+    return (std::ostringstream() << x).str();
 }
 
 template <typename T>
-concept TriviallyStringifiable = requires(const T& x) { std::to_string(x); };
+[[nodiscard]] inline std::string
+stringify(T const* const ptr) {
+    return to_hex(std::bit_cast<std::uintptr_t>(ptr));
+}
 
-template <TriviallyStringifiable T>
+inline std::string
+lpad(const std::size_t width, const std::string& str,
+     const char padChar = ' ') {
+    return std::string(width < str.length() ? 0 : width - str.length(),
+                       padChar) +
+           str;
+}
+
+template <typename T>
 inline std::string
 to_lpad(const std::size_t width, const T& x, const char padChar = ' ') {
-    return lpad(width, std::to_string(x), padChar);
+    return lpad(width, stringify(x), padChar);
 }
 
 inline std::string
@@ -28,7 +57,7 @@ spaces(const std::size_t n) {
 }
 
 inline bool
-cmpStrByLength(const std::string& s1, const std::string& s2) noexcept {
+cmp_str_by_length(const std::string& s1, const std::string& s2) noexcept {
     return s1.length() < s2.length();
 }
 
@@ -41,7 +70,7 @@ stringify_many(Iter begin, Iter end) {
 
     // fill with stringified elements
     std::transform(begin, end, std::back_inserter(strings),
-                   [](const auto& x) { return std::to_string(x); });
+                   [](const auto& x) { return stringify(x); });
 
     return strings;
 }
@@ -56,4 +85,14 @@ template <std::convertible_to<bool> T>
 [[nodiscard]] inline constexpr std::string
 yes_no(const T x) {
     return x ? "yes" : "no";
+}
+
+[[nodiscard]] inline constexpr std::string
+str_or(std::string const& str, std::string const& alternative) noexcept {
+    return str.size() ? str : alternative;
+}
+
+[[nodiscard]] inline constexpr std::string_view
+str_or(std::string_view str, std::string_view alternative) noexcept {
+    return str.size() ? str : alternative;
 }

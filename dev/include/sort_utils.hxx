@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <numeric>
 #include <ranges>
 #include <vector>
 
@@ -9,10 +10,9 @@ sort_by(IterIn begin, IterIn end, IterStencil stencil) {
     using Idx = long;
 
     // initialize indices
-    const auto                   n = std::distance(begin, end);
-    std::vector<Idx>             indices(n);
-    const std::ranges::iota_view idxRange{0, n};
-    std::copy(idxRange.begin(), idxRange.end(), indices.begin());
+    const auto       n = std::distance(begin, end);
+    std::vector<Idx> indices(n);
+    std::iota(indices.begin(), indices.end(), 0);
 
     // sort indices by stencil
     const auto compareByStencil = [&](const Idx& i1, const Idx& i2) {

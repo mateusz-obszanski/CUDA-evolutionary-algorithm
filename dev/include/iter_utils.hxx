@@ -8,7 +8,7 @@
 
 template <typename Iter>
 inline void
-printIter(Iter begin, Iter end, std::ostream& out = std::cout) {
+print_iter(Iter begin, Iter end, std::ostream& out = std::cout) {
     using T = typename Iter::value_type;
 
     out << '[';
@@ -24,7 +24,7 @@ printIter(Iter begin, Iter end, std::ostream& out = std::cout) {
 template <typename Iter>
 inline void
 printlnIter(Iter begin, Iter end, std::ostream& out = std::cout) {
-    printIter(begin, end, out);
+    print_iter(begin, end, out);
     out << '\n';
 }
 
@@ -47,13 +47,13 @@ concept RandomAccessContainer = requires(Container c, int i) {
 
 template <ConstIterable Container>
 inline void
-printContainer(const Container& c, std::ostream& out = std::cout) {
-    printIter(c.cbegin(), c.cend(), out);
+print_container(const Container& c, std::ostream& out = std::cout) {
+    print_iter(c.cbegin(), c.cend(), out);
 }
 
 template <ConstIterable Container>
 inline void
-printlnContainer(const Container& c, std::ostream& out = std::cout) {
+println_container(const Container& c, std::ostream& out = std::cout) {
     printlnIter(c.cbegin(), c.cend(), out);
 }
 
@@ -64,7 +64,8 @@ range_vec(const Idx start, const Idx stop) {
     std::vector<Idx> result;
     result.reserve(stop - start);
     const std::ranges::iota_view indices(start, stop);
-    std::for_each(indices.begin(), indices.end(), [&result](const auto& i) { result.push_back(i); });
+    std::for_each(indices.begin(), indices.end(),
+                  [&result](const auto& i) { result.push_back(i); });
 
     return result;
 }

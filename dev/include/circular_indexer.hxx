@@ -8,7 +8,8 @@ resolveCircularIdx(const long idx, const long collectionSize) {
     // else
     //     return idx % collectionSize;
     const auto isNegative = idx < 0;
-    const auto sign       = (1 - (isNegative << 1)); // 1 if index > 0, -1 if index < 0, 0 otherwise
+    const auto sign =
+        (1 - (isNegative << 1)); // 1 if index > 0, -1 if index < 0, 0 otherwise
     return collectionSize * isNegative + sign * ((sign * idx) % collectionSize);
 }
 
@@ -17,7 +18,8 @@ public:
     const long collectionSize;
 
     CircularIndexer() = delete;
-    [[nodiscard]] CircularIndexer(const long collectionSize) noexcept : collectionSize{collectionSize} {};
+    [[nodiscard]] CircularIndexer(const long collectionSize) noexcept
+    : collectionSize{collectionSize} {};
 
     long
     operator()(const long idx) const {
