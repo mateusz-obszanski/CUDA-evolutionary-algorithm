@@ -1,6 +1,10 @@
 # IDE
 .vscode
 
+vgcore.*
+valgrind_check.log
+.gdb_history
+
 *.i
 *.ii
 *.gpu
@@ -8,6 +12,7 @@
 *.cubin
 *.fatbin
 
+*.out
 build
 
 # Cmake
@@ -30,3 +35,5 @@ playground.*
 *.playground.*
 *.todo.*
 sketches/
+cementary/
+results/

@@ -11,8 +11,10 @@ thrust/random.h examples:
 
 ## Misc
 
-Thrust - maybe use cudaMalloc2D/cudaFree wrapped in RAII object
+Thrust - maybe use cudaMallocPitch/cudaFree wrapped in RAII object
 and pass it to thrust algorithms for better memory layout.
+
+:thumbsdown:: cannot use thrust algorithms, depends on pitch
 
 ## EA Coding
 
@@ -114,6 +116,7 @@ and pass it to thrust algorithms for better memory layout.
     - after each epoch (epoch === migration)
       - :thumbsup: no synchronization, less memory overhead (still, would not take much memory to save one chromosome)
       - :thumbsdown: will forget the really best solution
+  - Hamming distance or Spearman corelation between chromosomes
   - [] ? early stop?
   - [] ? epochs/checkpoints and adaptive learning parameters
 
