@@ -31,8 +31,8 @@ create_rnd_solution_population_tsp(const int nIndividuals, const int nLocations,
 }
 
 struct RndPopulationGeneratorOTSP {
-    const int nIndividuals;
-    const int nLocations;
+    const unsigned int nIndividuals;
+    const unsigned int nLocations;
 
     template <typename PRNG, typename NodeIdx = int>
     std::vector<NodeIdx>

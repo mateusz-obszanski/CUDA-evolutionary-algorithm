@@ -11,15 +11,18 @@
 
 template <typename T, typename PRNG>
 [[nodiscard]] inline std::vector<T>
-create_rnd_solution_population_tsp(const int nIndividuals, const int nLocations, PRNG& prng) {
-    // starting from point 1, not 0 (0 is implicit beginning and ending of a solution)
+create_rnd_solution_population_tsp(const int nIndividuals, const int nLocations,
+                                   PRNG& prng) {
+    // starting from point 1, not 0 (0 is implicit beginning and ending of a
+    // solution)
     const auto     solutionLength = (nLocations - 1);
     std::vector<T> population(solutionLength * nIndividuals);
 
     const auto end = population.data() + solutionLength * nIndividuals;
 
     // individual - pointer to the first gene of an individual
-    for (auto individual{population.data()}; individual < end; individual += solutionLength) {
+    for (auto individual{population.data()}; individual < end;
+         individual += solutionLength) {
         // fill with [1, ..., nGenes - 1)
         // starting from 1, because for closed TSP we implicitly assume 0
         // to be both starting and ending point, thus solution only consists of
@@ -37,21 +40,25 @@ create_rnd_solution_population_tsp(const int nIndividuals, const int nLocations,
 // after prng - helper preallocated vectors
 template <typename IterIn, typename PRNG>
 inline void
-mutatePopulation(
-    IterIn begin, const std::size_t populationSize, const std::size_t nGenes, const float mutationChance, PRNG& prng, std::vector<char>& mask) {
+mutatePopulation(IterIn begin, const std::size_t populationSize,
+                 const std::size_t nGenes, const float mutationChance,
+                 PRNG& prng, std::vector<char>& mask) {
 
-    for (auto individual{begin}; individual < begin + populationSize * nGenes; individual += nGenes)
-        choice_shuffle(mutationChance, individual, individual + nGenes, prng, mask);
+    for (auto individual{begin}; individual < begin + populationSize * nGenes;
+         individual += nGenes)
+        choice_shuffle(mutationChance, individual, individual + nGenes, prng,
+                       mask);
 }
 
 template <typename Iter, typename IterMask, typename PRNG>
 inline void
-rndMaskCrossover(Iter begin1, Iter end1, Iter begin2, IterMask mask, const float prob, PRNG& prng) {
+rndMaskCrossover(Iter begin1, Iter end1, Iter begin2, IterMask mask,
+                 const float prob, PRNG& prng) {
     const auto                        n = std::distance(begin1, end1);
     const std::bernoulli_distribution dist(prob);
     // fill random mask
-    // instead of generating mask array, mask value could be calculated as a local variable,
-    // but this versoin can be parallelized easily
+    // instead of generating mask array, mask value could be calculated as a
+    // local variable, but this versoin can be parallelized easily
     std::generate(mask, mask + n, [&] { return dist(prng); });
     swap_masked(begin1, end1, begin2, mask);
 }
@@ -61,14 +68,16 @@ using CostMx = std::vector<CostT>;
 
 template <typename PRNG>
 void
-initialize_rnd_symmetric_cost_mx_tsp(CostMx& mx, const int n, PRNG& prng, const CostT minCost = 1e-2, const CostT maxCost = 1e1) {
+initialize_rnd_symmetric_cost_mx_tsp(CostMx& mx, const std::size_t n,
+                                     PRNG& prng, const CostT minCost = 1e-2f,
+                                     const CostT maxCost = 1e1f) {
     std::uniform_real_distribution<CostT> dist{minCost, maxCost};
 
-    for (int i{0}; i < n; ++i) {
+    for (std::size_t i{0}; i < n; ++i) {
         // diagonal
         mx[i * n + i] = std::numeric_limits<CostT>::infinity();
 
-        for (int j{i + 1}; j < n; ++j) {
+        for (std::size_t j{i + 1}; j < n; ++j) {
             const auto cost = dist(prng);
 
             mx[i * n + j] = cost;
@@ -79,17 +88,21 @@ initialize_rnd_symmetric_cost_mx_tsp(CostMx& mx, const int n, PRNG& prng, const 
 
 template <typename PRNG>
 inline CostMx
-create_rnd_symmetric_cost_mx_tsp(const int n, PRNG& prng, const CostT minCost = 1e-2, const CostT maxCost = 1e1) {
+create_rnd_symmetric_cost_mx_tsp(const std::size_t n, PRNG& prng,
+                                 const CostT minCost = 1e-2f,
+                                 const CostT maxCost = 1e1f) {
     CostMx mx(square(n));
     initialize_rnd_symmetric_cost_mx_tsp(mx, n, prng, minCost, maxCost);
 
     return mx;
 }
 
-/// Open TSP loss function - does not add cost from the last destination to the 0 index
+/// Open TSP loss function - does not add cost from the last destination to the
+/// 0 index
 template <typename SolutionIter>
 [[nodiscard]] inline float
-calcLossOpen(const CostMx& costMx, const std::size_t nLocations, SolutionIter begin, SolutionIter end) {
+calcLossOpen(const CostMx& costMx, const unsigned int nLocations,
+             SolutionIter begin, SolutionIter end) {
     float loss = 0.0f;
 
     using Location = std::remove_const<decltype(*begin)>::type;
@@ -98,9 +111,7 @@ calcLossOpen(const CostMx& costMx, const std::size_t nLocations, SolutionIter be
     // Location current = 0;
     int current = 0;
 
-    using CostT    = CostMx::value_type;
-    using CostIter = decltype(costMx.begin());
-    const MatrixView<CostT, CostIter> mxView(costMx.begin(), nLocations);
+    const MatrixView mxView(costMx.begin(), nLocations);
 
     std::for_each(begin, end, [=, &current, &mxView, &loss](Location dst) {
         loss += mxView.get(current, dst);
@@ -112,10 +123,9 @@ calcLossOpen(const CostMx& costMx, const std::size_t nLocations, SolutionIter be
 
 template <typename SolutionIter>
 [[nodiscard]] inline float
-calcLossClosed(const CostMx& costMx, const std::size_t nLocations, SolutionIter begin, SolutionIter end) {
-    using CostT    = CostMx::value_type;
-    using CostIter = decltype(costMx.begin());
-    const MatrixView<CostT, CostIter> mxView(costMx.begin(), nLocations);
+calcLossClosed(const CostMx& costMx, const unsigned int nLocations,
+               SolutionIter begin, SolutionIter end) {
+    const MatrixView mxView(costMx.begin(), nLocations);
 
     const auto last = *(end - 1);
 
@@ -138,13 +148,9 @@ using Population = std::vector<Individual<GeneT>>;
 // p<i>, loss<i> are sorted together by loss<i> in decreasing order
 template <typename GeneT, typename LossT>
 inline void
-migrateBetween(
-    Population<GeneT>&  p1,
-    Population<GeneT>&  p2,
-    const int           nGenes,
-    std::vector<LossT>& loss1,
-    std::vector<LossT>& loss2,
-    const int           nMigrants) {
+migrateBetween(Population<GeneT>& p1, Population<GeneT>& p2, const int nGenes,
+               std::vector<LossT>& loss1, std::vector<LossT>& loss2,
+               const int nMigrants) {
 
     using Individual = GeneT*;
 
@@ -161,36 +167,35 @@ migrateBetween(
 
 template <typename Gene>
 inline auto
-solution_to_individuals(std::vector<Gene>& solution, const int nIndividuals, const int nGenes) {
+solution_to_individuals(std::vector<Gene>& solution, const int nIndividuals,
+                        const int nGenes) {
     using GenePtr = decltype(solution.begin())::value_type*;
     std::vector<GenePtr> individuals(nIndividuals);
 
     for (int i{0}; i < nIndividuals; ++i)
-        individuals[i] = static_cast<GenePtr>(&(*solution.begin())) + i * nGenes;
+        individuals[i] =
+            static_cast<GenePtr>(&(*solution.begin())) + i * nGenes;
 
     return individuals;
 }
 
 template <typename Individual>
 inline void
-calcPopulationLosses(
-    std::vector<float>&            losses,
-    const std::vector<Individual>& population,
-    const CostMx&                  costMx,
-    const int                      nLocations) {
+calcPopulationLosses(std::vector<float>&            losses,
+                     const std::vector<Individual>& population,
+                     const CostMx& costMx, const int nLocations) {
 
     const auto nGenes = nLocations - 1;
     std::transform(
-        population.cbegin(), population.cend(), losses.begin(),
-        [&](auto ind) { return calcLossClosed(costMx, nLocations, ind, ind + nGenes); });
+        population.cbegin(), population.cend(), losses.begin(), [&](auto ind) {
+            return calcLossClosed(costMx, nLocations, ind, ind + nGenes);
+        });
 }
 
 template <typename Individual>
 inline std::vector<float>
-calcPopulationLosses(
-    const std::vector<Individual>& population,
-    const CostMx&                  costMx,
-    const int                      nLocations) {
+calcPopulationLosses(const std::vector<Individual>& population,
+                     const CostMx& costMx, const int nLocations) {
 
     std::vector<float> losses(population.size());
     calcPopulationLosses(losses, population, costMx, nLocations);
@@ -209,16 +214,14 @@ getRandomMigrationDirection(PRNG& prng) {
     return static_cast<MigrationDirection>(getRandomSign(prng));
 }
 
-/// lossMatrix - each row corresponds to population, each column to individual solution
+/// lossMatrix - each row corresponds to population, each column to individual
+/// solution
 template <typename GeneT>
 inline void
-migrate(
-    std::vector<Population<GeneT>>&  populations,
-    std::vector<std::vector<float>>& lossMatrix,
-    const int                        nIndividuals,
-    const int                        nGenes,
-    const int                        nMigrants,
-    const MigrationDirection         migrationDirection) {
+migrate(std::vector<Population<GeneT>>&  populations,
+        std::vector<std::vector<float>>& lossMatrix, const int nIndividuals,
+        const int nGenes, const int nMigrants,
+        const MigrationDirection migrationDirection) {
 
     const int nPopulations = populations.size();
 
@@ -227,7 +230,8 @@ migrate(
     // buffer is needed to ensure correct migration scheme,
     // otherwise some individuals may migrate further.
     // The first or last, depending on migration (iteration) direction.
-    const auto tempIdx = (nPopulations - 1) * (migrationDirection == MigrationDirection::LEFT);
+    const auto tempIdx =
+        (nPopulations - 1) * (migrationDirection == MigrationDirection::LEFT);
 
     auto& tempPopulation     = populations[tempIdx];
     auto& tempPopulationLoss = lossMatrix[tempIdx]; // extracts row
@@ -242,21 +246,23 @@ migrate(
     // temp population (and loss) is unnecessarily sorted each time,
     // but we expect that after sorting, each k migrants appear at the first
     // k indices of the vector.
-    for (int i{0}; i < nPopulations; ++i) {
+    for (std::size_t i{0}; i < nPopulations; ++i) {
         const auto p    = &populations[i];
         const auto loss = &lossMatrix[i];
 
         using PopIter  = decltype(p->begin());
         using LossIter = decltype(loss->begin());
 
-        sort_by2<PopIter, LossIter, REORDER_LOSS, SortOrder::DECR>(p->begin(), p->begin() + nIndividuals, loss->begin());
+        sort_by2<PopIter, LossIter, REORDER_LOSS, SortOrder::DECR>(
+            p->begin(), p->begin() + nIndividuals, loss->begin());
     }
 
     // for correct iteration direction
     // offset == 1 and nPopulations - 1, because the first population is used as
     // a temporary buffer, so swapping with it is already implicitly
     // handled
-    const Counter counter(1, nPopulations, static_cast<int>(migrationDirection));
+    const Counter counter(1, nPopulations,
+                          static_cast<int>(migrationDirection));
 
     for (const auto i : counter) {
         // migrate between next population and temp buffer to preserve
@@ -264,6 +270,7 @@ migrate(
         // temp is already "initialized"
         // temp contains previously overwritten migrants, thus swapping with
         // temp "advances" migration by one complete step
-        migrateBetween(populations[i], tempPopulation, nGenes, lossMatrix[i], tempPopulationLoss, nMigrants);
+        migrateBetween(populations[i], tempPopulation, nGenes, lossMatrix[i],
+                       tempPopulationLoss, nMigrants);
     }
 }

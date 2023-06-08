@@ -7,8 +7,9 @@
 constexpr auto INF = std::numeric_limits<float>::infinity();
 
 struct StopCondition {
-    [[nodiscard]] StopCondition(int maxIters,
-                                int maxItersWithoutImprovement = -1) noexcept
+    [[nodiscard]] StopCondition(
+        unsigned int maxIters,
+        unsigned int maxItersWithoutImprovement = -1) noexcept
     : bestLoss(INF),
       iteration(0),
       iterationSinceImprovement(0),
@@ -71,14 +72,24 @@ struct StopCondition {
         return stop_reason_to_str(get_stop_reason());
     }
 
+    [[nodiscard]] auto
+    get_iters() const noexcept {
+        return iteration;
+    }
+
+    [[nodiscard]] auto
+    get_iters_since_improvement() const noexcept {
+        return iterationSinceImprovement;
+    }
+
 private:
     // adds the possibility that stop condition has not been reached yet
     enum class _StopReason { REACHED_MAX_ITERS, NO_IMPROVEMENT, DID_NOT_STOP };
 
-    float       bestLoss;
-    int         iteration;
-    int         iterationSinceImprovement;
-    const int   maxIters;
-    const int   maxItersWithoutImprovement;
-    _StopReason stopReason;
+    float              bestLoss;
+    unsigned int       iteration;
+    unsigned int       iterationSinceImprovement;
+    const unsigned int maxIters;
+    const unsigned int maxItersWithoutImprovement;
+    _StopReason        stopReason;
 };

@@ -67,14 +67,15 @@ calcPopulationLosses(const std::vector<Individual>& population,
 
 struct LossFnClosed {
 public:
-    const int           nLocations;
-    const int           populationSize;
+    const unsigned int  nLocations;
+    const unsigned int  populationSize;
     const CostMx* const costMx;
 
     LossFnClosed() = delete;
 
-    [[nodiscard]] LossFnClosed(const int nLocations, CostMx const* costMxPtr,
-                               const int populationSize)
+    [[nodiscard]] LossFnClosed(const unsigned int nLocations,
+                               CostMx const*      costMxPtr,
+                               const unsigned int populationSize)
     : nLocations(nLocations),
       populationSize(populationSize),
       costMx(costMxPtr) {}

@@ -37,19 +37,22 @@ public:
     using value_type        = std::span<T>;
     using pointer           = std::unique_ptr<value_type>;
     using reference         = value_type;
+    using size_t            = std::size_t;
 
     MatrixRowIter() = delete;
-    MatrixRowIter(Iter data, unsigned int rowLength) : row(data, rowLength) {}
+    MatrixRowIter(Iter data, size_t rowLength)
+    : row(data, static_cast<RowIter::StrideT>(rowLength)) {}
 
     reference
     operator*() {
         return {static_cast<Iter>(row),
-                static_cast<std::size_t>(std::abs(row.jump_length()))};
+                static_cast<size_t>(std::abs(row.jump_length()))};
     }
 
     pointer
     operator->() {
-        return std::make_unique<value_type>(*row, row.jump_length());
+        return std::make_unique<value_type>(
+            *row, static_cast<size_t>(std::abs(row.jump_length())));
     }
 
     MatrixRowIter&
@@ -166,31 +169,38 @@ private:
 
 template <std::contiguous_iterator Iter>
 struct MatrixViewRowIterProxy {
+    using size_t = unsigned int;
+    using iter_t = MatrixRowIter<Iter>;
+
+private:
+    using difference_type = std::iterator_traits<iter_t>::difference_type;
+
+public:
     MatrixViewRowIterProxy() = delete;
-    [[nodiscard]] MatrixViewRowIterProxy(Iter ptrData, unsigned int nrows,
-                                         unsigned int rowLength)
+    [[nodiscard]] MatrixViewRowIterProxy(Iter ptrData, size_t nrows,
+                                         size_t rowLength)
     : ptrData(ptrData), nrows(nrows), rowLength(rowLength) {}
 
     auto
     begin() {
-        return MatrixRowIter<Iter>(ptrData, rowLength);
+        return iter_t(ptrData, rowLength);
     }
 
     auto
     end() {
-        return begin() + nrows;
+        return begin() + static_cast<difference_type>(nrows);
     }
 
 private:
-    Iter const         ptrData;
-    const unsigned int nrows;
-    const unsigned int rowLength;
+    Iter const   ptrData;
+    const size_t nrows;
+    const size_t rowLength;
 };
 
 template <typename Iter>
 struct MatrixViewColIterProxy {
     MatrixViewColIterProxy() = delete;
-    [[nodiscard]] MatrixViewColIterProxy(Iter ptrData, unsigned int ncols)
+    [[nodiscard]] MatrixViewColIterProxy(Iter ptrData, size_t ncols)
     : ptrData(ptrData), ncols(ncols) {}
 
     auto
@@ -204,8 +214,8 @@ struct MatrixViewColIterProxy {
     }
 
 private:
-    const Iter         ptrData;
-    const unsigned int ncols;
+    const Iter   ptrData;
+    const size_t ncols;
 };
 
 } // namespace
@@ -213,15 +223,15 @@ private:
 template <typename IterT>
 class MatrixView {
 public:
+    using size_t     = unsigned int;
     using pointer    = IterT;
     using value_type = std::iterator_traits<IterT>::value_type;
-    using Size       = std::pair<unsigned int, unsigned int>;
+    using Size       = std::pair<size_t, size_t>;
     using View       = std::span<value_type>;
 
     [[nodiscard]] MatrixView(pointer p, Size size) : mMemory{p}, mSize{size} {};
-    [[nodiscard]] MatrixView(pointer p, unsigned int n)
-    : MatrixView(p, {n, n}) {}
-    [[nodiscard]] MatrixView(pointer p, unsigned int nrows, unsigned int ncols)
+    [[nodiscard]] MatrixView(pointer p, size_t n) : MatrixView(p, {n, n}) {}
+    [[nodiscard]] MatrixView(pointer p, size_t nrows, size_t ncols)
     : MatrixView(p, {nrows, ncols}) {}
 
     [[nodiscard]] pointer
@@ -230,17 +240,17 @@ public:
     }
 
     [[nodiscard]] value_type
-    get(unsigned int row, unsigned int col) const {
+    get(size_t row, size_t col) const {
         return mMemory[linear_idx(row, col)];
     }
 
     void
-    set(const unsigned int row, const unsigned int col, const value_type elem) {
+    set(const size_t row, const size_t col, const value_type elem) {
         mMemory[linear_idx(row, col)] = elem;
     }
 
     [[nodiscard]] View
-    get_row(const unsigned int i) const noexcept {
+    get_row(const size_t i) const noexcept {
         return {row_begin(i), width()};
     }
 
@@ -282,23 +292,23 @@ private:
     Size    mSize;
 
     [[nodiscard]] auto
-    row_offset(const unsigned i) const noexcept {
+    row_offset(const size_t i) const noexcept {
         return i * width();
     }
 
     [[nodiscard]] auto
-    linear_idx(const unsigned row, const unsigned int col) const noexcept {
+    linear_idx(const size_t row, const size_t col) const noexcept {
         return row_offset(row) + col;
     }
 
     [[nodiscard]] pointer
-    row_begin(const unsigned int i) const noexcept {
+    row_begin(const size_t i) const noexcept {
         return mMemory + row_offset(i);
     }
 };
 
 inline auto&
-print_column_idxs(const unsigned int ncols, const std::size_t maxElemWidth,
+print_column_idxs(const size_t ncols, const std::size_t maxElemWidth,
                   const std::size_t lpadding        = 0,
                   const std::size_t separatorLength = 1,
                   std::ostream&     out             = std::cout) {
@@ -309,7 +319,7 @@ print_column_idxs(const unsigned int ncols, const std::size_t maxElemWidth,
     // additional padding by index column length
     print_padding(lpadding);
 
-    for (unsigned int i{0}; i < ncols; ++i)
+    for (size_t i{0}; i < ncols; ++i)
         out << to_lpad(maxColWidth, i) << spaces(separatorLength);
 
     return out;
@@ -372,7 +382,7 @@ pretty_print_mx(MatrixView<Iter> const& mx) {
 
 template <typename Iter>
 inline void
-pretty_print_mx(Iter begin, unsigned int nrows, unsigned int ncols) {
+pretty_print_mx(Iter begin, size_t nrows, size_t ncols) {
     const MatrixView mx(begin, {nrows, ncols});
     pretty_print_mx(mx);
 }

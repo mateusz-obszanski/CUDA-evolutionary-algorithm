@@ -4,7 +4,7 @@
 
 template <typename PRNG = std::default_random_engine>
 inline auto
-create_rng(const unsigned int seed = 0u) {
+create_rng(const unsigned long seed = 0u) {
     PRNG rng;
     rng.seed(seed);
 
