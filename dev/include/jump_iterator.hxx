@@ -4,7 +4,8 @@
 #include <concepts>
 #include <iterator>
 
-template <typename WrappedIter> struct DispatchJumpIteratorTag {
+template <typename WrappedIter>
+struct DispatchJumpIteratorTag {
     using tag = std::iterator_traits<WrappedIter>::iterator_category;
 };
 
@@ -16,7 +17,8 @@ struct DispatchJumpIteratorTag<WrappedIter> {
     using tag = std::random_access_iterator_tag;
 };
 
-template <std::forward_iterator Iter> struct JumpIterator {
+template <std::forward_iterator Iter>
+struct JumpIterator {
 private:
     using Traits = std::iterator_traits<Iter>;
 

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import pandas as pd
-from pathlib import Path
+from operator import itemgetter
+import re
+import datetime
 import numpy as np
+from pathlib import Path
 import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -21,15 +24,71 @@ def read_binary_data(filename: str) -> pd.DataFrame:
     return pd.DataFrame(data, columns=data.dtype.names)  # type: ignore
 
 
+def find_the_most_recent_results_dir(parent: Path):
+    candidates = list(filter(lambda p: p.is_dir(), parent.iterdir()))
+
+    if not candidates:
+        raise RuntimeError(f"no result directories at location: {parent}")
+
+    dates = []
+
+    pattern = re.compile(
+        r"(?P<day>\d\d)-(?P<month>\d\d)-(?P<year>\d{4})_(?P<hour>\d\d)-(?P<minute>\d\d)-(?P<second>\d\d)"
+    )
+
+    for c in candidates:
+        match = pattern.match(c.name)
+
+        if match is None:
+            print(f"ignoring directory: {c}")
+            continue
+
+        groups = match.groupdict()
+        dates.append(
+            datetime.datetime(
+                **{
+                    name: int(groups[name])
+                    for name in ("year", "month", "day", "hour", "minute", "second")
+                }
+            )
+        )
+
+    if not dates:
+        raise RuntimeError(f"no result directories at location: {parent}")
+
+    max_idx, _ = max(enumerate(dates), key=itemgetter(1))
+
+    return candidates[max_idx]
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("path", type=Path)
-    parser.add_argument("--plot", type=bool, default=True)
+    parser.add_argument(
+        "path",
+        type=Path,
+        help="Path to file with algorithm results or to directory with multiple results.",
+    )
+    parser.add_argument(
+        "-l",
+        "--latest",
+        action="store_true",
+        help="if called on directory with multiple results directories, take the most recent",
+    )
+    parser.add_argument("-p", "--plot", type=bool, default=True)
     namespace = parser.parse_args()
 
     readpath = namespace.path
 
+    if not readpath.exists():
+        raise RuntimeError(f"directory does not exist: {readpath}")
+
     if readpath.is_dir():
+        if namespace.latest:
+            # set the readpath to the most recent directory
+            readpath = find_the_most_recent_results_dir(readpath)
+            print("most recent results:", readpath)
+
+        # show all island results in the directory
         readfiles = list(
             filter(lambda f: f.is_file() and f.suffix == ".dat", readpath.iterdir())
         )
@@ -118,7 +177,7 @@ def main():
 
         savepath = readfile.parent / (readfile.stem + "_plot.png")
         print(f"saving plot at: {savepath}")
-        fig.savefig(savepath)
+        fig.savefig(savepath)  # type: ignore
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ struct PopulationSizeError : public std::exception {
 
 template <typename RndPopulationGenerator, typename MutationOp,
           typename CrossOp, typename LossFn, typename MigrationOp,
-          typename StopCondition, typename PRNG, typename RepairOp = NoOp,
+          typename StopCondition, typename RepairOp = NoOp,
           typename Coder = NoOp>
 struct IslandEvolutionaryAlgorithm {
     using GeneT                 = int;
@@ -43,14 +43,13 @@ struct IslandEvolutionaryAlgorithm {
     [[nodiscard]] IslandEvolutionaryAlgorithm(
         RndPopulationGenerator rndPopulationGenerator, MutationOp mutationOp,
         CrossOp crossOp, LossFn lossFn, MigrationOp migrationOp,
-        StopCondition stopCondition, PRNG prng, EvAlgParams params,
+        StopCondition stopCondition, EvAlgParams params,
         RepairOp repairOp = NoOp(), Coder coder = NoOp())
     : stopCondition(stopCondition),
       rndPopulationGenerator(rndPopulationGenerator),
       mutationOp(mutationOp),
       crossoverOp(crossOp),
       migrationOp(migrationOp),
-      prng(prng),
       params(params),
       repairOp(repairOp),
       coder(coder),
@@ -77,9 +76,10 @@ struct IslandEvolutionaryAlgorithm {
         }
     }
 
+    template <typename PRNG>
     void
-    operator()() {
-        initialize_islands();
+    operator()(CostMx const& costMx, PRNG& prng) {
+        initialize_islands(prng);
 
         const std::ranges::iota_view islandIdxs(0u, params.nIslands);
         const std::ranges::iota_view epochIters(0u, params.iterationsPerEpoch);
@@ -91,7 +91,7 @@ struct IslandEvolutionaryAlgorithm {
             // this loop could be parallel, if saving the best solution and
             // its fitness are thread-safe operations
             for (const auto islandIdx : islandIdxs) {
-                run_island(islandIdx, individualsMx[islandIdx]);
+                run_island(costMx, prng, islandIdx, individualsMx[islandIdx]);
                 // at the end of run_island, population is bred, so
                 // repairing and loss recalculation are necessary
 
@@ -102,7 +102,7 @@ struct IslandEvolutionaryAlgorithm {
                     repair_population(populationView);
                 }
 
-                grade_population(islandIdx, individualsMx[islandIdx]);
+                grade_population(costMx, islandIdx, individualsMx[islandIdx]);
                 sort_population(islandIdx, individualsMx[islandIdx]);
 
                 remember_best_solution(islandIdx, individualsMx[islandIdx]);
@@ -130,13 +130,22 @@ struct IslandEvolutionaryAlgorithm {
         }
     }
 
+    [[nodiscard]] auto
+    get_best_fitness() const noexcept {
+        return bestFitness;
+    }
+
+    [[nodiscard]] auto
+    get_best_solution() const {
+        return bestSolution;
+    }
+
 private:
     RndPopulationGenerator rndPopulationGenerator;
     MutationOp             mutationOp;
     CrossOp                crossoverOp;
     std::vector<LossFn>    lossFunPerIsland;
     MigrationOp            migrationOp;
-    PRNG                   prng;
     const EvAlgParams      params;
     RepairOp               repairOp;
     Coder                  coder;
@@ -152,8 +161,9 @@ private:
 
     using PopulationMxView = MatrixView<GeneT*>;
 
+    template <typename PRNG>
     void
-    initialize_islands() {
+    initialize_islands(PRNG& prng) {
         for (auto& islandPopulation : islands) {
             const auto population = rndPopulationGenerator(prng);
 
@@ -181,8 +191,9 @@ private:
         return individualsMx;
     }
 
+    template <typename PRNG>
     void
-    run_island(const unsigned int         islandIdx,
+    run_island(CostMx const& costMx, PRNG& prng, const unsigned int islandIdx,
                IndividualPtrsView<GeneT>& individualPtrsView) {
 
         auto&            population = islands[islandIdx];
@@ -190,24 +201,27 @@ private:
                                         params.populationSize, params.nGenes);
 
         for (unsigned int i{0}; i < params.iterationsPerEpoch; ++i) {
-            mutate_population(populationView);
+            mutate_population(populationView, prng);
             repair_population(populationView);
-            grade_population(islandIdx, individualPtrsView);
+            grade_population(costMx, islandIdx, individualPtrsView);
             // elitist selection - best solutions at the beginning
             // sorts only pointers, they will be used for crossover
             sort_population(islandIdx, individualPtrsView);
             remember_best_solution(islandIdx, individualPtrsView);
             remember_stats(islandIdx);
-            breed_population(individualPtrsView);
+            breed_population(individualPtrsView, prng);
         }
     }
 
+    template <typename PRNG>
     void
-    mutate_population(PopulationMxView& population) {
+    mutate_population(PopulationMxView& population, PRNG& prng) {
         for (auto row : population.rows())
             mutationOp(row.data(), prng);
     }
 
+    /// for more advanced (but slow) repair procedure, cost matrix might be
+    /// required
     void
     repair_population(PopulationMxView& population) {
         if constexpr (is_noop_t<RepairOp>)
@@ -218,10 +232,11 @@ private:
     }
 
     void
-    grade_population(const unsigned int         islandIdx,
+    grade_population(CostMx const& costMx, const unsigned int islandIdx,
                      IndividualPtrsView<GeneT>& individualPtrs) {
         if constexpr (is_noop_t<Coder>)
-            lossFunPerIsland[islandIdx](individualPtrs, lossMx[islandIdx]);
+            lossFunPerIsland[islandIdx](individualPtrs, costMx,
+                                        lossMx[islandIdx]);
         else {
             // if solutions are encoded, loss function must get decoded version
             auto decoded = coder.decode_many(islands[islandIdx]);
@@ -229,7 +244,7 @@ private:
             auto decodedIndividualPtrs = solution_to_individuals(
                 decoded, params.populationSize, coder.decoded_length());
 
-            lossFunPerIsland[islandIdx](decodedIndividualPtrs,
+            lossFunPerIsland[islandIdx](decodedIndividualPtrs, costMx,
                                         lossMx[islandIdx]);
         }
     }
@@ -280,8 +295,9 @@ private:
     }
 
     /// Assumes that population size is even, if not, happy SEGFAULT day
+    template <typename PRNG>
     void
-    breed_population(IndividualPtrsView<GeneT>& sortedParentPtrs) {
+    breed_population(IndividualPtrsView<GeneT>& sortedParentPtrs, PRNG& prng) {
         for (std::size_t i{0}; i < sortedParentPtrs.size(); i += 2) {
             const auto p1Ptr(sortedParentPtrs[i]);
             const auto p2Ptr(sortedParentPtrs[i + 1]);

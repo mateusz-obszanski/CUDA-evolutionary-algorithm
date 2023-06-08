@@ -12,7 +12,6 @@
 
 /// parameters needed during runtime
 struct EvAlgParams {
-    const CostMx       costMx;
     const unsigned int populationSize;
     const unsigned int nLocations;
     const unsigned int nIslands;
@@ -20,12 +19,11 @@ struct EvAlgParams {
     const unsigned int nGenes;
 
     EvAlgParams() = delete;
-    [[nodiscard]] EvAlgParams(const CostMx costMx, unsigned int populationSize,
+    [[nodiscard]] EvAlgParams(unsigned int populationSize,
                               unsigned int nLocations, unsigned int nIslands,
                               unsigned int iterationsPerEpoch,
                               unsigned int nGenes) noexcept
-    : costMx(costMx),
-      populationSize(populationSize),
+    : populationSize(populationSize),
       nLocations(nLocations),
       nIslands(nIslands),
       iterationsPerEpoch(iterationsPerEpoch),

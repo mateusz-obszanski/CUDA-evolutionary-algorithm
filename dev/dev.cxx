@@ -6,9 +6,13 @@
 #include "ev_alg/parameters.hxx"
 #include "ev_alg/population_generation.hxx"
 #include "ev_alg/stop_cond.hxx"
+#include "iter_utils.hxx"
 #include "utils.hxx"
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
+#include <functional>
+#include <ios>
 
 inline void
 show_ev_alg_tsp() {
@@ -46,10 +50,10 @@ show_ev_alg_tsp() {
                                                    nLocations};
     Mutator                    mutator(nGenes, mutationChance);
     CrossoverPMX2PointAdapter  crossover{};
-    LossFnClosed               lossFn(nLocations, &costMx, islandPopulation);
+    LossFnClosed               lossFn(nLocations, islandPopulation);
     MigrationOp<GeneT>         migrator(islandPopulation, nGenes, nMigrants);
     StopCondition     stopCondition(nEpochs, nEpochsWithourImprovement);
-    const EvAlgParams params(costMx, islandPopulation, nLocations, nIslands,
+    const EvAlgParams params(islandPopulation, nLocations, nIslands,
                              iterationsPerEpoch, nGenes);
     // those are optional
     auto repairOp = NoOp();
@@ -59,11 +63,11 @@ show_ev_alg_tsp() {
 
     // PMX
     IslandEvolutionaryAlgorithm algo(populationGenerator, mutator, crossover,
-                                     lossFn, migrator, stopCondition, prng,
-                                     params, repairOp, coder);
+                                     lossFn, migrator, stopCondition, params,
+                                     repairOp, coder);
 
     std::cout << "Starting algorithm\n";
-    algo();
+    algo(costMx, prng);
 
     std::cout << "stop reason: " << algo.stopCondition.get_stop_reason_str()
               << '\n';
@@ -82,13 +86,8 @@ test_param_loading() {
     params.print();
 }
 
-void
-show_ev_alg_tsp_from_fie_cfg() {
-    const auto allParams = AllParams::from_file("algo_cfg.txt");
-
-    auto       prng   = create_rng(allParams.prng_seed);
-    const auto costMx = create_rnd_symmetric_cost_mx_tsp(
-        allParams.nLocations, prng, allParams.minCost, allParams.maxCost);
+[[nodiscard]] inline auto
+build_island_ev_alg_tsp_pmx(AllParams const& allParams) {
     using LocationIdxT = int;
     // this might differ for special solution coder
     using GeneT = LocationIdxT;
@@ -98,32 +97,86 @@ show_ev_alg_tsp_from_fie_cfg() {
                                                    allParams.nLocations};
     Mutator mutator(allParams.nGenes, allParams.mutationChance);
     CrossoverPMX2PointAdapter crossover{};
-    LossFnClosed              lossFn(allParams.nLocations, &costMx,
-                                     allParams.islandPopulation);
+    LossFnClosed       lossFn(allParams.nLocations, allParams.islandPopulation);
     MigrationOp<GeneT> migrator(allParams.islandPopulation, allParams.nGenes,
                                 allParams.nMigrants);
     StopCondition      stopCondition(allParams.nEpochs,
                                      allParams.nEpochsWithoutImprovement);
-    const EvAlgParams  params(costMx, allParams.islandPopulation,
-                              allParams.nLocations, allParams.nIslands,
-                              allParams.iterationsPerEpoch, allParams.nGenes);
+    const EvAlgParams  params(allParams.islandPopulation, allParams.nLocations,
+                              allParams.nIslands, allParams.iterationsPerEpoch,
+                              allParams.nGenes);
     // those are optional
     auto repairOp = NoOp();
     auto coder    = NoOp();
 
-    std::cout << "Configuring algorithm\n"
+    return IslandEvolutionaryAlgorithm(populationGenerator, mutator, crossover,
+                                       lossFn, migrator, stopCondition, params,
+                                       repairOp, coder);
+}
+
+using MilliSecF64 = double;
+
+template <typename F>
+inline double
+measure_execution_time(F& f) {
+    using std::chrono::high_resolution_clock;
+
+    const auto t1 = high_resolution_clock::now();
+    f();
+    const auto t2 = high_resolution_clock::now();
+
+    const std::chrono::duration<MilliSecF64, std::milli> tdelta = t2 - t1;
+
+    return tdelta.count();
+}
+
+template <typename Algo = decltype(std::function{
+              build_island_ev_alg_tsp_pmx})::result_type>
+void
+show_ev_alg_tsp_from_file_cfg(
+    Algo (*builder)(AllParams const&) = build_island_ev_alg_tsp_pmx) {
+
+    static constexpr std::string cfgFilePath = "algo_cfg.txt";
+
+    std::cout << "Reading experiment configuration from file \"" << cfgFilePath
+              << "\"\n";
+    const auto allParams = AllParams::from_file(cfgFilePath);
+
+    std::cout << "Setting random seed (" << allParams.prng_seed << ")\n";
+    auto prng = create_rng(allParams.prng_seed);
+
+    std::cout << "Generating random cost matrix\n";
+    const auto costMx = create_rnd_symmetric_cost_mx_tsp(
+        allParams.nLocations, prng, allParams.minCost, allParams.maxCost);
+
+    std::cout << '\n';
+    std::cout << "Configuring algorithm:\n"
+              << "---\n"
               << "Parameters:\n";
     allParams.print();
 
-    // PMX
-    IslandEvolutionaryAlgorithm algo(populationGenerator, mutator, crossover,
-                                     lossFn, migrator, stopCondition, prng,
-                                     params, repairOp, coder);
+    auto algo = builder(allParams);
 
+    std::cout << '\n';
     std::cout << "Starting algorithm\n";
-    algo();
+
+    using std::chrono::high_resolution_clock;
+
+    const auto t1 = high_resolution_clock::now();
+    algo(costMx, prng);
+    const auto t2 = high_resolution_clock::now();
+
+    const std::chrono::duration<MilliSecF64, std::milli> tdeltaDuration =
+        t2 - t1;
+
+    const auto tdelta = tdeltaDuration.count();
+
+    const auto coutFlags = std::cout.flags();
+    std::cout << std::scientific;
 
     std::cout << "Finished!\n"
+              << "Best solution loss: " << algo.get_best_fitness() << '\n'
+              << "Elapsed time: " << tdelta << "[ms]\n"
               << "stop reason: " << algo.stopCondition.get_stop_reason_str()
               << '\n'
               << "epochs: " << algo.stopCondition.get_iters() << '/'
@@ -132,10 +185,16 @@ show_ev_alg_tsp_from_fie_cfg() {
               << algo.stopCondition.get_iters_since_improvement() << '/'
               << allParams.nEpochsWithoutImprovement << '\n';
 
+    std::cout << "Best solution:\n";
+    println_container(algo.get_best_solution());
+
     const auto resultsDir = std::filesystem::current_path() / "results/" /
                             get_time_str("%d-%m-%Y_%H-%M-%S");
 
     std::cout << "Saving results to directory " << resultsDir << "\n";
+
+    // restore flags
+    std::cout.flags(coutFlags);
 
     algo.save_results(resultsDir);
 }
@@ -148,7 +207,7 @@ main() {
         // pmx_crossover_showcase();
         // test_param_loading();
         // show_ev_alg_tsp();
-        show_ev_alg_tsp_from_fie_cfg();
+        show_ev_alg_tsp_from_file_cfg();
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         std::exit(1);

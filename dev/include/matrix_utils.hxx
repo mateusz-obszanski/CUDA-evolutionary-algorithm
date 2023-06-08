@@ -245,12 +245,16 @@ public:
     }
 
     void
-    set(const size_t row, const size_t col, const value_type elem) {
+    set(const size_t row, const size_t col, const value_type elem)
+        requires(IsConstIter<IterT>)
+    {
         mMemory[linear_idx(row, col)] = elem;
     }
 
     [[nodiscard]] View
-    get_row(const size_t i) const noexcept {
+    get_row(const size_t i) const noexcept
+        requires(std::contiguous_iterator<IterT>)
+    {
         return {row_begin(i), width()};
     }
 
@@ -303,7 +307,7 @@ private:
 
     [[nodiscard]] pointer
     row_begin(const size_t i) const noexcept {
-        return mMemory + row_offset(i);
+        return std::next(mMemory, row_offset(i));
     }
 };
 

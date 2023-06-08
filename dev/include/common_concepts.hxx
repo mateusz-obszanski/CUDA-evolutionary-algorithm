@@ -4,6 +4,12 @@
 #include <sstream>
 #include <string>
 
+template <typename T>
+concept IsConst = std::is_const_v<T>;
+
+template <typename Iter>
+concept IsConstIter = IsConst<typename std::iterator_traits<Iter>::value_type>;
+
 template <typename T1, typename T2 = T1>
 concept ComparableLT = requires(T1 x, T2 y) {
     { x < y } -> std::convertible_to<bool>;

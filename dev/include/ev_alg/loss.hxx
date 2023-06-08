@@ -17,10 +17,9 @@ calcLossOpen(const CostMx& costMx, const std::size_t nLocations,
         typename std::iterator_traits<SolutionIter>::value_type>::type;
 
     // assuming that the starting point is 0
-    // Location current = 0;
     int current = 0;
 
-    const MatrixView mxView(costMx.begin(), nLocations);
+    const MatrixView mxView(costMx.data(), nLocations);
 
     std::for_each(begin, end, [=, &current, &mxView, &loss](Location dst) {
         loss += mxView.get(current, dst);
@@ -34,9 +33,9 @@ template <typename SolutionIter>
 [[nodiscard]] inline float
 calcLossClosed(const CostMx& costMx, const std::size_t nLocations,
                SolutionIter begin, SolutionIter end) {
-    const MatrixView mxView(costMx.begin(), nLocations);
+    const MatrixView mxView(costMx.data(), nLocations);
 
-    const auto last = *(end - 1);
+    const auto last = *std::prev(end);
 
     return calcLossOpen(costMx, nLocations, begin, end) + mxView.get(last, 0);
 }
@@ -67,42 +66,34 @@ calcPopulationLosses(const std::vector<Individual>& population,
 
 struct LossFnClosed {
 public:
-    const unsigned int  nLocations;
-    const unsigned int  populationSize;
-    const CostMx* const costMx;
+    const unsigned int nLocations;
+    const unsigned int populationSize;
 
     LossFnClosed() = delete;
 
     [[nodiscard]] LossFnClosed(const unsigned int nLocations,
-                               CostMx const*      costMxPtr,
                                const unsigned int populationSize)
-    : nLocations(nLocations),
-      populationSize(populationSize),
-      costMx(costMxPtr) {}
+    : nLocations(nLocations), populationSize(populationSize) {}
 
     [[nodiscard]] LossFnClosed(LossFnClosed const& other)
-    : nLocations(other.nLocations),
-      populationSize(other.populationSize),
-      costMx(other.costMx) {}
+    : nLocations(other.nLocations), populationSize(other.populationSize) {}
 
-    [[nodiscard]] LossFnClosed(LossFnClosed&& other)
-    : nLocations(std::move(other.nLocations)),
-      populationSize(std::move(other.populationSize)),
-      costMx(std::move(other.costMx)) {}
+    [[nodiscard]] LossFnClosed(LossFnClosed&& other) = default;
 
     template <typename IndividualPtr>
     void
     operator()(std::vector<IndividualPtr> const& population,
-               std::vector<float>&               values) const {
+               CostMx const& costMx, std::vector<float>& values) const {
 
-        calcPopulationLosses(values, population, *costMx, nLocations);
+        calcPopulationLosses(values, population, costMx, nLocations);
     }
 
     template <typename IndividualPtr>
     [[nodiscard]] std::vector<float>
-    operator()(std::vector<IndividualPtr> const& population) const {
+    operator()(std::vector<IndividualPtr> const& population,
+               CostMx const&                     costMx) const {
         std::vector<float> values(populationSize);
-        (*this)(population, values);
+        (*this)(population, costMx, values);
         return values;
     }
 };

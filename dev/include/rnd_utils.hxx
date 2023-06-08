@@ -2,7 +2,7 @@
 #include <limits>
 #include <random>
 
-template <typename PRNG = std::default_random_engine>
+template <typename PRNG = std::mt19937>
 inline auto
 create_rng(const unsigned long seed = 0u) {
     PRNG rng;
