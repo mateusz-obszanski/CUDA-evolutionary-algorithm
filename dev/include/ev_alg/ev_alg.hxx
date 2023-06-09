@@ -81,37 +81,46 @@ struct IslandEvolutionaryAlgorithm {
     operator()(CostMx const& costMx, PRNG& prng) {
         initialize_islands(prng);
 
-        const std::ranges::iota_view islandIdxs(0u, params.nIslands);
-        const std::ranges::iota_view epochIters(0u, params.iterationsPerEpoch);
-
         auto individualsMx = create_individual_view_matrix();
+
+        unsigned epoch = 0;
 
         // check stop condition between migrations
         do {
-            // this loop could be parallel, if saving the best solution and
-            // its fitness are thread-safe operations
-            for (const auto islandIdx : islandIdxs) {
-                run_island(costMx, prng, islandIdx, individualsMx[islandIdx]);
-                // at the end of run_island, population is bred, so
-                // repairing and loss recalculation are necessary
-
-                if constexpr (not is_noop_t<RepairOp>) {
-                    PopulationMxView populationView(islands[islandIdx].data(),
-                                                    params.populationSize,
-                                                    params.nGenes);
-                    repair_population(populationView);
-                }
-
-                grade_population(costMx, islandIdx, individualsMx[islandIdx]);
-                sort_population(islandIdx, individualsMx[islandIdx]);
-
-                remember_best_solution(islandIdx, individualsMx[islandIdx]);
-                remember_stats(islandIdx);
-            }
-
-            migrationOp(individualsMx, lossMx, prng);
+            std::cout << "epoch " << epoch++ << '\n';
+            run_epoch(costMx, prng, individualsMx);
 
         } while (!stopCondition(bestFitness));
+    }
+
+    template <typename PRNG>
+    void
+    run_epoch(CostMx const& costMx, PRNG& prng,
+              std::vector<IndividualPtrsView<GeneT>>& individualsMx) {
+        const std::ranges::iota_view islandIdxs(0u, params.nIslands);
+
+        // this loop could be parallel, if saving the best solution and
+        // its fitness are thread-safe operations
+        for (const auto islandIdx : islandIdxs) {
+            run_island(costMx, prng, islandIdx, individualsMx[islandIdx]);
+            // at the end of run_island, population is bred, so
+            // repairing and loss recalculation are necessary
+
+            if constexpr (not is_noop_t<RepairOp>) {
+                PopulationMxView populationView(islands[islandIdx].data(),
+                                                params.populationSize,
+                                                params.nGenes);
+                repair_population(populationView);
+            }
+
+            grade_population(costMx, islandIdx, individualsMx[islandIdx]);
+            sort_population(islandIdx, individualsMx[islandIdx]);
+
+            remember_best_solution(islandIdx, individualsMx[islandIdx]);
+            remember_stats(islandIdx);
+        }
+
+        migrationOp(individualsMx, lossMx, prng);
     }
 
     void
@@ -138,6 +147,23 @@ struct IslandEvolutionaryAlgorithm {
     [[nodiscard]] auto
     get_best_solution() const {
         return bestSolution;
+    }
+
+    // matrix [islandIdx x populationSize] of pointers to the beginnings of each
+    // individual solution
+    [[nodiscard]] std::vector<IndividualPtrsView<GeneT>>
+    create_individual_view_matrix() {
+        std::vector<IndividualPtrsView<GeneT>> individualsMx(params.nIslands);
+
+        const std::ranges::iota_view<std::size_t, std::size_t> islandIdxs(
+            0, params.nIslands);
+
+        // initialize pointers to individual solutions for each island
+        for (const auto islandIdx : islandIdxs)
+            individualsMx[islandIdx] = solution_to_individuals(
+                islands[islandIdx], params.populationSize, params.nGenes);
+
+        return individualsMx;
     }
 
 private:
@@ -172,23 +198,6 @@ private:
             else
                 islandPopulation = std::move(coder.encode_many(population));
         }
-    }
-
-    // matrix [islandIdx x populationSize] of pointers to the beginnings of each
-    // individual solution
-    [[nodiscard]] std::vector<IndividualPtrsView<GeneT>>
-    create_individual_view_matrix() {
-        std::vector<IndividualPtrsView<GeneT>> individualsMx(params.nIslands);
-
-        const std::ranges::iota_view<std::size_t, std::size_t> islandIdxs(
-            0, params.nIslands);
-
-        // initialize pointers to individual solutions for each island
-        for (const auto islandIdx : islandIdxs)
-            individualsMx[islandIdx] = solution_to_individuals(
-                islands[islandIdx], params.populationSize, params.nGenes);
-
-        return individualsMx;
     }
 
     template <typename PRNG>

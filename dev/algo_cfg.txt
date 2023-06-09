@@ -1,11 +1,11 @@
 prng_seed 0
-iterationsPerEpoch 32
-nEpochs 16
-nEpochsWithoutImprovement 4
-nLocations 16
+iterationsPerEpoch 64
+nEpochs 128
+nEpochsWithoutImprovement 16
+nLocations 64
 minCost 1e-1
-maxCost 1e1
-islandPopulation 16
+maxCost 1e2
+islandPopulation 128
 nIslands 4
 # nGenes optional
 mutationChance 0.1

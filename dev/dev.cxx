@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <filesystem>
 #include <functional>
 #include <ios>
 
@@ -116,9 +117,9 @@ build_island_ev_alg_tsp_pmx(AllParams const& allParams) {
 
 using MilliSecF64 = double;
 
-template <typename F>
+// template <typename F>
 inline double
-measure_execution_time(F& f) {
+measure_execution_time(std::function<void()> f) {
     using std::chrono::high_resolution_clock;
 
     const auto t1 = high_resolution_clock::now();
@@ -134,9 +135,8 @@ template <typename Algo = decltype(std::function{
               build_island_ev_alg_tsp_pmx})::result_type>
 void
 show_ev_alg_tsp_from_file_cfg(
+    std::filesystem::path cfgFilePath,
     Algo (*builder)(AllParams const&) = build_island_ev_alg_tsp_pmx) {
-
-    static constexpr std::string cfgFilePath = "algo_cfg.txt";
 
     std::cout << "Reading experiment configuration from file \"" << cfgFilePath
               << "\"\n";
@@ -160,16 +160,8 @@ show_ev_alg_tsp_from_file_cfg(
     std::cout << '\n';
     std::cout << "Starting algorithm\n";
 
-    using std::chrono::high_resolution_clock;
-
-    const auto t1 = high_resolution_clock::now();
-    algo(costMx, prng);
-    const auto t2 = high_resolution_clock::now();
-
-    const std::chrono::duration<MilliSecF64, std::milli> tdeltaDuration =
-        t2 - t1;
-
-    const auto tdelta = tdeltaDuration.count();
+    const auto tdelta =
+        measure_execution_time([&algo, &costMx, &prng] { algo(costMx, prng); });
 
     const auto coutFlags = std::cout.flags();
     std::cout << std::scientific;
@@ -197,17 +189,25 @@ show_ev_alg_tsp_from_file_cfg(
     std::cout.flags(coutFlags);
 
     algo.save_results(resultsDir);
+    allParams.save(resultsDir / "parameters.txt");
 }
 
 int
-main() {
+main(const int argc, const char* const argv[]) {
     try {
         // playground();
         // showcase_permutation_inversion_sequence();
         // pmx_crossover_showcase();
         // test_param_loading();
         // show_ev_alg_tsp();
-        show_ev_alg_tsp_from_file_cfg();
+        std::filesystem::path cfgFilePath;
+
+        if (argc < 2)
+            cfgFilePath = "algo_cfg.txt";
+        else
+            cfgFilePath = argv[1];
+
+        show_ev_alg_tsp_from_file_cfg(cfgFilePath);
     } catch (std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         std::exit(1);

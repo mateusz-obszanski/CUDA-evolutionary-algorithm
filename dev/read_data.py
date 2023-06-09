@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+from dataclasses import dataclass
 import pandas as pd
+import matplotlib as mpl
 from operator import itemgetter
+from typing import Any
 import re
 import datetime
 import numpy as np
@@ -61,29 +64,84 @@ def find_the_most_recent_results_dir(parent: Path):
     return candidates[max_idx]
 
 
+@dataclass
+class ConfigFileSyntaxError(RuntimeError):
+    path: Path
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}: {self.path}"
+
+
+def parse_parameters(results_path: Path) -> dict[str, Any] | None:
+    dirpath = results_path if results_path.is_dir() else results_path.parent
+    params_file = dirpath / "parameters.txt"
+
+    if not params_file.exists():
+        return None
+
+    mapped = {}
+
+    with open(params_file, "r") as f:
+        for line in f:
+            try:
+                param_name, value = line.split()
+                param_name = param_name.strip(":")
+                value = value.strip(",")
+
+                param_type = float if "." in value else int
+                mapped[param_name] = param_type(value)
+            except ValueError as e:
+                raise ConfigFileSyntaxError(params_file) from e
+
+    return mapped
+
+
+def mark_epochs(params: dict[str, Any], ax: mpl.axis.Axis):
+    n = params["iterationsPerEpoch"]
+    xs = ax.get_lines()[0].get_xdata()
+    epoch_xs = xs[::n]
+
+    style = {"linestyle": "dotted", "color": "#333333", "alpha": 0.5}
+
+    line = None
+
+    for x in epoch_xs:
+        line = ax.axvline(x, **style)
+
+    if line is not None:
+        line.label = "epoch"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "path",
         type=Path,
-        help="Path to file with algorithm results or to directory with multiple results.",
+        help=(
+            "Path to file with algorithm results or to directory with "
+            "multiple results."
+        ),
     )
     parser.add_argument(
         "-l",
         "--latest",
         action="store_true",
-        help="if called on directory with multiple results directories, take the most recent",
+        help=(
+            "if called on directory with multiple results directories, "
+            " take the most recent"
+        ),
     )
+    parser.add_argument("-E", "--no-mark-epochs", action="store_true")
     parser.add_argument("-p", "--plot", type=bool, default=True)
-    namespace = parser.parse_args()
+    args = parser.parse_args()
 
-    readpath = namespace.path
+    readpath = args.path
 
     if not readpath.exists():
         raise RuntimeError(f"directory does not exist: {readpath}")
 
     if readpath.is_dir():
-        if namespace.latest:
+        if args.latest:
             # set the readpath to the most recent directory
             readpath = find_the_most_recent_results_dir(readpath)
             print("most recent results:", readpath)
@@ -109,7 +167,7 @@ def main():
         min_loss_x = data.min_loss.argmin()
         min_loss_y = data.min_loss[min_loss_x]
 
-        marker = "o"
+        marker = "."
 
         sns.set_style("whitegrid")
         fig = plt.figure()
@@ -172,7 +230,15 @@ def main():
         ax.axvline(min_loss_x, **min_markline_style)
         ax.annotate(f"{min_loss_y:.2f}, i: {min_loss_x}", (min_loss_x, min_loss_y))
 
-        if namespace.plot:
+        if not args.no_mark_epochs:
+            params = parse_parameters(readfile)
+
+            if params:
+                mark_epochs(params, ax)
+
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+
+        if args.plot:
             plt.show()
 
         savepath = readfile.parent / (readfile.stem + "_plot.png")

@@ -164,6 +164,21 @@ convert_parameter(
     return result;
 }
 
+struct FileNotFoundError : public std::exception {
+    FileNotFoundError() = delete;
+    [[nodiscard]] FileNotFoundError(std::filesystem::path p)
+    : msg("FileNotFoundError: " + p.string()), p(p) {}
+
+    const char*
+    what() const noexcept override {
+        return msg.c_str();
+    }
+
+private:
+    const std::string           msg;
+    const std::filesystem::path p;
+};
+
 /// parameters needed during setup
 struct AllParams {
     const std::size_t  prng_seed;
@@ -204,33 +219,36 @@ struct AllParams {
       migrationRatio(migrationRatio) {}
 
     void
-    print() const {
-        const auto flags = std::cout.flags();
+    print(std::ostream& out = std::cout) const {
+        const auto flags = out.flags();
 
         // set pretty flags
-        std::cout << std::scientific << std::boolalpha;
+        out << std::scientific << std::boolalpha;
 
-        std::cout << "prng_seed: " << prng_seed << ",\n"
-                  << "iterationsPerEpoch: " << iterationsPerEpoch << ",\n"
-                  << "nEpochs: " << nEpochs << ",\n"
-                  << "nEpochsWithoutImprovement: " << nEpochsWithoutImprovement
-                  << ",\n"
-                  << "nLocations: " << nLocations << ",\n"
-                  << "minCost: " << minCost << ",\n"
-                  << "maxCost: " << maxCost << ",\n"
-                  << "islandPopulation: " << islandPopulation << ",\n"
-                  << "nIslands: " << nIslands << ",\n"
-                  << "nMigrants: " << nMigrants << ",\n"
-                  << "nGenes: " << nGenes << ",\n"
-                  << "mutationChance: " << mutationChance << ",\n"
-                  << "migrationRatio: " << migrationRatio << "\n";
+        out << "prng_seed: " << prng_seed << ",\n"
+            << "iterationsPerEpoch: " << iterationsPerEpoch << ",\n"
+            << "nEpochs: " << nEpochs << ",\n"
+            << "nEpochsWithoutImprovement: " << nEpochsWithoutImprovement
+            << ",\n"
+            << "nLocations: " << nLocations << ",\n"
+            << "minCost: " << minCost << ",\n"
+            << "maxCost: " << maxCost << ",\n"
+            << "islandPopulation: " << islandPopulation << ",\n"
+            << "nIslands: " << nIslands << ",\n"
+            << "nMigrants: " << nMigrants << ",\n"
+            << "nGenes: " << nGenes << ",\n"
+            << "mutationChance: " << mutationChance << ",\n"
+            << "migrationRatio: " << migrationRatio << "\n";
 
         // restoring initial state
-        std::cout.flags(flags);
+        out.flags(flags);
     }
 
     [[nodiscard]] inline static AllParams
     from_file(std::filesystem::path path) {
+        if (not std::filesystem::exists(path))
+            throw FileNotFoundError(path);
+
         std::ifstream input(path.string());
         const auto    parameterMap = parse_params(input);
 
@@ -248,5 +266,18 @@ struct AllParams {
             convert_parameter<float>("minCost", parameterMap, 1e-2f),
             convert_parameter<float>("maxCost", parameterMap, 1e1f),
             convert_parameter<unsigned int>("nGenes", parameterMap, 0));
+    }
+
+    void
+    save(std::filesystem::path path) const {
+        std::ofstream file(path);
+        print(file);
+    }
+
+    [[nodiscard]] std::string
+    to_str() const {
+        std::ostringstream oss;
+        print(oss);
+        return oss.str();
     }
 };
