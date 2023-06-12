@@ -12,6 +12,10 @@ valgrind_check.log
 *.cubin
 *.fatbin
 
+*.lib
+*.exe
+*.exp
+*.obj
 *.out
 build
 
