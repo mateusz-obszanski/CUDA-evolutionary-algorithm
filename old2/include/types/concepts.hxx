@@ -63,7 +63,7 @@ concept MutuallyConvertibleIterVal =
     MutuallyConvertible<typename IterX::value_type, typename IterY::value_type>;
 
 template <typename Pred, typename T>
-concept UnaryPredicate = requires(Pred p, T x) {{p(x)} -> std::same_as<bool>; };
+concept UnaryPredicate = requires(Pred p, T x) {{p(x)} -> std::convertible_to<bool>; };
 
 } // namespace concepts
 } // namespace types

@@ -1,19 +1,27 @@
 CompileFlags:
   Add:
-    [
-      --std=c++20,
-      -Wunused,
-      -Wall,
-      -Wpedantic,
-      -Wextra,
-      # to suppress unknown opts set by e.g. Cmake in some parent directory
-      -Wno-unknown-warning-option,
-      -Wconversion,
-      -Wsign-compare,
-      -Wsign-conversion,
-      # adds "include/" directory
-      -Iinclude,
-      -I-
-    ]
+    - --std=c++20
+    - -Wunused
+    - -Wall
+    - -Wpedantic
+    - -Wextra
+    # to suppress unknown opts set by e.g. Cmake in some parent directory
+    - -Wno-unknown-warning-option
+    - -Wconversion
+    - -Wsign-compare
+    - -Wsign-conversion
+    # adds "include/" directory
+    - -iquoteinclude
+    - --cuda-path=C://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.1
+    - -LC://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.1//lib
+    - -IC://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.1//include
+    - --log=verbose
+
+Diagnostics:
+  ClangTidy:
+    Remove:
+      - C://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.1
+      - -LC://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.1//lib
+      - -IC://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.1//include
 Hover:
   ShowAKA: true
