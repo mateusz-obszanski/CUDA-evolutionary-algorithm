@@ -1,6 +1,7 @@
 #pragma once
 
-#include "./types.cuh"
+#include "./types.h"
+#include "./types.h"
 #include <cuda/std/iterator>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>

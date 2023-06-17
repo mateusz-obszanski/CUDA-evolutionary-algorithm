@@ -76,23 +76,23 @@ stringify_many(Iter begin, Iter end) {
 }
 
 template <std::convertible_to<bool> T>
-[[nodiscard]] inline constexpr std::string
+[[nodiscard]] inline std::string
 pretty_bool(const T x) {
     return x ? "true" : "false";
 }
 
 template <std::convertible_to<bool> T>
-[[nodiscard]] inline constexpr std::string
+[[nodiscard]] inline std::string
 yes_no(const T x) {
     return x ? "yes" : "no";
 }
 
-[[nodiscard]] inline constexpr std::string
+[[nodiscard]] inline std::string
 str_or(std::string const& str, std::string const& alternative) noexcept {
     return str.size() ? str : alternative;
 }
 
-[[nodiscard]] inline constexpr std::string_view
+[[nodiscard]] inline std::string_view
 str_or(std::string_view str, std::string_view alternative) noexcept {
     return str.size() ? str : alternative;
 }

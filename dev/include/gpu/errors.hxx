@@ -1,26 +1,18 @@
 #pragma once
 
-#include "./text.hxx"
-#include <source_location>
 #include <stdexcept>
 #include <string>
 
 namespace errors {
 
-namespace {
-
-using std::source_location;
-
-}
-
 class NotImplementedException : public std::exception {
 public:
-    const source_location locInfo;
-    const std::string     msg;
+    const int         lineNum;
+    const std::string msg;
 
     NotImplementedException() = delete;
-    NotImplementedException(source_location locInfo = source_location::current())
-    : locInfo{locInfo}, msg{text::fmtLineInfo(locInfo)} {}
+    NotImplementedException(int lineNum = -1)
+    : lineNum(lineNum), msg{std::to_string(lineNum)} {}
 
     const char*
     what() const noexcept override {
@@ -29,8 +21,8 @@ public:
 };
 
 [[noreturn]] void
-throwNotImplemented(source_location locInfo = source_location::current()) {
-    throw NotImplementedException(locInfo);
+throwNotImplemented(const int lineNum = -1) {
+    throw NotImplementedException(lineNum);
 }
 
 } // namespace errors

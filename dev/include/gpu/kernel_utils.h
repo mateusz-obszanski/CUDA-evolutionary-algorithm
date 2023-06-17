@@ -11,14 +11,16 @@ namespace utils {
 constexpr unsigned int WARP_SIZE          = 32;
 constexpr unsigned int BLOCK_SIZE_DEFAULT = WARP_SIZE;
 
-template <std::convertible_to<double> T = int>
-constexpr __host__ __device__ T
+template <std::constructible_from<double> R = int,
+          std::convertible_to<double>     T = R>
+constexpr __host__ __device__ R
 divCeil(T x, T y) {
     return ceil(static_cast<double>(x) / y);
 }
 
-__host__ __device__ constexpr unsigned int 
-calcBlockNum1D(const unsigned int  nElems, const unsigned int  blockSize = BLOCK_SIZE_DEFAULT) {
+__host__ __device__ constexpr unsigned int
+calcBlockNum1D(const unsigned int nElems,
+               const unsigned int blockSize = BLOCK_SIZE_DEFAULT) {
     return divCeil(nElems, blockSize);
 }
 

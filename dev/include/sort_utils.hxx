@@ -30,8 +30,8 @@ template <typename IterIn, typename IterStencil, bool ReorderStencil = false,
           SortOrder Order = SortOrder::INCR>
 inline void
 sort_by2(IterIn begin, IterIn end, IterStencil stencil) {
-    using T           = std::iterator_traits<IterIn>::value_type;
-    using S           = std::iterator_traits<IterStencil>::value_type;
+    using T           = typename std::iterator_traits<IterIn>::value_type;
+    using S           = typename std::iterator_traits<IterStencil>::value_type;
     using WithStencil = std::pair<T, S>;
 
     // initialize indices

@@ -5,7 +5,7 @@
 
 template <typename WrappedIter>
 struct DispatchJumpIteratorTag {
-    using tag = std::iterator_traits<WrappedIter>::iterator_category;
+    using tag = typename std::iterator_traits<WrappedIter>::iterator_category;
 };
 
 template <typename WrappedIter>
@@ -22,11 +22,11 @@ private:
     using Traits = std::iterator_traits<Iter>;
 
 public:
-    using iterator_category = DispatchJumpIteratorTag<Iter>::tag;
-    using difference_type   = Traits::difference_type;
-    using value_type        = Traits::value_type;
+    using iterator_category = typename DispatchJumpIteratorTag<Iter>::tag;
+    using difference_type   = typename Traits::difference_type;
+    using value_type        = typename Traits::value_type;
     using pointer           = Iter;
-    using reference         = Traits::reference;
+    using reference         = typename Traits::reference;
     using StrideT           = long;
 
     JumpIterator(pointer ptr, StrideT jumpLength)

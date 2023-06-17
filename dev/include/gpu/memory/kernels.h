@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../../common_concepts.hxx"
-#include "../types.cuh"
+#include "../types.h"
+#include "../types.h"
 #include <cuda/std/cstddef>
 
 namespace device {

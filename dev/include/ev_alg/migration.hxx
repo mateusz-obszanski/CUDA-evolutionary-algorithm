@@ -44,7 +44,7 @@ enum class MigrationDirection {
     RIGHT = 1,
 };
 
-inline constexpr std::string
+inline std::string
 stringify_migration_direction_short(MigrationDirection d) noexcept {
     return (d == MigrationDirection::LEFT) ? "LEFT" : "RIGHT";
 }

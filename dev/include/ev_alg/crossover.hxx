@@ -57,6 +57,8 @@ private:
  * 2-point PMX ordered crossover
  * based on: https://blog.x5ff.xyz/blog/ai-rust-javascript-pmx/ by Claus,
  * date of access: 01 June 2023
+ *
+ * Requires sequence minimum to be >= 1
  */
 struct CrossoverPMX2Point {
     using GeneT          = int;
@@ -104,13 +106,13 @@ private:
         Child   offspring(n); // filled with 0s
         Mapping mapping(n);   // filled with std::nullopt
 
-        // -1, because with current encoding, numbers start from 1
-        RefIndexingAdapter mappingAdapter(mapping,
-                                          [](auto idx) { return idx - 1; });
+        // - 1, because with current encoding, numbers start from 1
+        const auto gene_to_index = [](auto gene) { return gene - 1; };
+
+        RefIndexingAdapter mappingAdapter(mapping, gene_to_index);
 
         // Inheritance! This sets the values within the crossover zone.
         for (int i{x1}; i < x2; ++i) {
-            // offspring[i] = p2[i];
             offspring[i] = p2[i];
 
             // Put the values that "should have been there" into the map.
@@ -130,15 +132,19 @@ private:
                         Child& offspring, auto& mapping) {
 
         for (int i{begin}; i < end; ++i) {
-            auto        o = mapping[parent1[i]];
-            decltype(o) last;
+            auto                  overwritten = mapping[parent1[i]];
+            decltype(overwritten) lastOverwritten;
 
-            while (o.has_value()) {
-                last = o;
-                o    = mapping[o.value()];
+            // look for non-duplicated value
+            while (overwritten.has_value()) {
+                lastOverwritten = overwritten;
+                overwritten     = mapping[overwritten.value()];
             }
 
-            offspring[i] = last.value_or(parent1[i]);
+            // if was not duplicated, write from parent, else write found value
+            // lastOverwritten - last overwritten gene that does not overwrite
+            // other genes
+            offspring[i] = lastOverwritten.value_or(parent1[i]);
         }
     }
 };

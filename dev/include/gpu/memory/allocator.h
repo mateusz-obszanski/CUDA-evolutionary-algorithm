@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../../common_concepts.hxx"
-#include "../types.cuh"
-#include "../errors.cuh"
+#include "../errors.h"
+#include "../types.h"
 #include <cuda/std/cstddef>
 #include <cuda_runtime.h>
 #include <iostream>
@@ -211,12 +211,12 @@ concept Allocator =
 template <typename A>
 concept DeviceAllocator =
     SameAsAny<A, DeviceAllocator<typename A::value_type>,
-                           DeviceAllocatorAsync<typename A::value_type>>;
+              DeviceAllocatorAsync<typename A::value_type>>;
 
 template <typename A>
 concept HostAllocator =
     SameAsAny<A, HostAllocatorManaged<typename A::value_type>,
-                           HostAllocatorPinned<typename A::value_type>>;
+              HostAllocatorPinned<typename A::value_type>>;
 
 } // namespace concepts
 

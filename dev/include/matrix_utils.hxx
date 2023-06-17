@@ -10,15 +10,16 @@
 
 template <typename Iter>
 inline void
-print_mx(Iter begin, const int nrows, const int ncols) {
-    std::cout << "[\n";
+print_mx(Iter begin, const int nrows, const int ncols,
+         std::ostream& out = std::cout) {
+    out << "[\n";
 
     for (int row{0}; row < nrows; ++row) {
-        print_iter(begin, begin + ncols);
+        println_iter(begin, begin + ncols, out);
         begin += ncols;
     }
 
-    std::cout << "]\n";
+    out << "]\n";
 }
 
 namespace {
@@ -40,7 +41,7 @@ public:
 
     MatrixRowIter() = delete;
     MatrixRowIter(Iter data, size_t rowLength)
-    : row(data, static_cast<RowIter::StrideT>(rowLength)) {}
+    : row(data, static_cast<typename RowIter::StrideT>(rowLength)) {}
 
     reference
     operator*() {
@@ -172,7 +173,8 @@ struct MatrixViewRowIterProxy {
     using iter_t = MatrixRowIter<Iter>;
 
 private:
-    using difference_type = std::iterator_traits<iter_t>::difference_type;
+    using difference_type =
+        typename std::iterator_traits<iter_t>::difference_type;
 
 public:
     MatrixViewRowIterProxy() = delete;
@@ -224,7 +226,7 @@ class MatrixView {
 public:
     using size_t     = unsigned int;
     using pointer    = IterT;
-    using value_type = std::iterator_traits<IterT>::value_type;
+    using value_type = typename std::iterator_traits<IterT>::value_type;
     using Size       = std::pair<size_t, size_t>;
     using View       = std::span<value_type>;
 
@@ -265,6 +267,11 @@ public:
     [[nodiscard]] auto
     height() const noexcept {
         return mSize.first;
+    }
+
+    [[nodiscard]] auto
+    size() const noexcept {
+        return mSize.first * mSize.second;
     }
 
     [[nodiscard]] auto

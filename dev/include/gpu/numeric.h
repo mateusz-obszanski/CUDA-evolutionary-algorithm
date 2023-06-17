@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../common_concepts.hxx"
-#include "./functors.cuh"
+#include "./functors.h"
+#include "./functors.h"
 #include <concepts>
 
 namespace device {

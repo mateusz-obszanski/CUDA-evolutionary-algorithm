@@ -169,7 +169,7 @@ template <typename Gene>
 inline auto
 solution_to_individuals(std::vector<Gene>& solution, const int nIndividuals,
                         const int nGenes) {
-    using GenePtr = decltype(solution.begin())::value_type*;
+    using GenePtr = typename decltype(solution.begin())::value_type*;
     std::vector<GenePtr> individuals(nIndividuals);
 
     for (int i{0}; i < nIndividuals; ++i)

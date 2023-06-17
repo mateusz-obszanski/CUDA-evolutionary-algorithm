@@ -60,7 +60,7 @@ struct StopCondition {
         return static_cast<StopReason>(stopReason);
     }
 
-    [[nodiscard]] inline static constexpr std::string
+    [[nodiscard]] inline static std::string
     stop_reason_to_str(StopReason reason) {
         const char* names[] = {"REACHED_MAX_ITERS", "NO_IMPROVEMENT"};
         const auto  nameIdx = static_cast<std::size_t>(reason);

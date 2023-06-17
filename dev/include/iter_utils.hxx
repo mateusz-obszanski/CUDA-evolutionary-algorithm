@@ -9,7 +9,7 @@
 template <typename Iter>
 inline void
 print_iter(Iter begin, Iter end, std::ostream& out = std::cout) {
-    using T = typename Iter::value_type;
+    using T = typename std::iterator_traits<Iter>::value_type;
 
     out << '[';
     const auto nextToLast = std::prev(end);
@@ -23,7 +23,7 @@ print_iter(Iter begin, Iter end, std::ostream& out = std::cout) {
 
 template <typename Iter>
 inline void
-printlnIter(Iter begin, Iter end, std::ostream& out = std::cout) {
+println_iter(Iter begin, Iter end, std::ostream& out = std::cout) {
     print_iter(begin, end, out);
     out << '\n';
 }
@@ -54,7 +54,7 @@ print_container(const Container& c, std::ostream& out = std::cout) {
 template <ConstIterable Container>
 inline void
 println_container(const Container& c, std::ostream& out = std::cout) {
-    printlnIter(c.cbegin(), c.cend(), out);
+    println_iter(c.cbegin(), c.cend(), out);
 }
 
 /// stop >= start

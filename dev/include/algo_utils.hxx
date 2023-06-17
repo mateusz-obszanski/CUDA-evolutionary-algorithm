@@ -40,7 +40,7 @@ gather_indices_if(InIter begin, InIter end, PredicateT predicate,
                   OutIter result) {
 
     const auto n = std::distance(begin, end);
-    using Idx    = std::remove_const<decltype(n)>::type;
+    using Idx    = typename std::remove_const<decltype(n)>::type;
     std::ranges::iota_view<Idx, Idx> indices{0, n};
     gather_if(indices.begin(), indices.end(), result, begin, predicate);
 }
@@ -72,7 +72,7 @@ reorder(InIter begin, InIter end, IdxIter srcIdxsBegin, IdxIter srcIdxsEnd,
         IdxIter dstIdxsBegin) {
     const auto nIndices = std::distance(srcIdxsBegin, srcIdxsEnd);
 
-    using ItemT = std::iterator_traits<InIter>::value_type;
+    using ItemT = typename std::iterator_traits<InIter>::value_type;
     std::vector<ItemT> readOnlySrc{begin, end};
 
     for (int i{0}; i < nIndices; ++i) {
@@ -87,7 +87,7 @@ reorder(InIter begin, InIter end, IdxIter srcIdxsBegin, IdxIter srcIdxsEnd,
 template <typename InIter, typename IdxIter>
 inline void
 reorder(InIter begin, InIter end, IdxIter idx) {
-    using ItemT = std::iterator_traits<InIter>::value_type;
+    using ItemT = typename std::iterator_traits<InIter>::value_type;
     std::vector<ItemT> readOnlySrc{begin, end};
 
     const auto n = std::distance(begin, end);

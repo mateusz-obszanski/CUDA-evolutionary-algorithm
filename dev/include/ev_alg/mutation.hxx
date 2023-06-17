@@ -15,7 +15,7 @@ public:
 
     [[nodiscard]] Mutator(Mutator const& other)
     : Mutator(other.nGenes, other.mutationChance) {}
-    [[nodiscard]] Mutator(Mutator const&& other)
+    [[nodiscard]] Mutator(Mutator&& other)
     : nGenes(other.nGenes),
       mutationChance(other.mutationChance),
       preallocated_mask(std::move(other.preallocated_mask)) {}
