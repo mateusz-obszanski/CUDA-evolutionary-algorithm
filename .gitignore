@@ -5,6 +5,9 @@ vgcore.*
 valgrind_check.log
 .gdb_history
 
+gdb_commands.txt
+algo_cfg*.txt
+
 *.i
 *.ii
 *.gpu

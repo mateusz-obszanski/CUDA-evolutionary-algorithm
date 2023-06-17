@@ -4,6 +4,7 @@
 #include "./kernel_utils.h"
 #include "./types.h"
 #include <concepts>
+#include <thrust/distance.h>
 
 namespace device {
 namespace combining {

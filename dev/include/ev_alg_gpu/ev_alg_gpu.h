@@ -1,12 +1,13 @@
 #pragma once
-#include <thrust/copy.h>
-#include <thrust/device_vector.h>
 #include "../ev_alg/ea_utils.hxx"
 #include "../ev_alg/ev_alg.hxx"
 #include "../ev_alg/parameters.hxx"
 #include "../ev_alg/stats.hxx"
+#include "../gpu/errors.hxx"
 #include <concepts>
 #include <fstream>
+#include <thrust/copy.h>
+#include <thrust/device_vector.h>
 
 template <typename RndPopulationGenerator, typename MutationOp,
           typename CrossOp, typename LossFn, typename MigrationOp,
@@ -61,7 +62,8 @@ struct IslandEvolutionaryAlgorithmGPU {
 
     template <typename PRNG, typename THRUST_PRNG, typename CURAND_RND_STATES>
     void
-    operator()(CostMx const& costMx, PRNG& prng, THRUST_PRNG& thrustPrng, CURAND_RND_STATES& states) {
+    operator()(CostMx const& costMx, PRNG& prng, THRUST_PRNG& thrustPrng,
+               CURAND_RND_STATES& states) {
         initialize_islands(prng);
 
         auto individualsMx = create_individual_view_matrix();
@@ -78,17 +80,23 @@ struct IslandEvolutionaryAlgorithmGPU {
 
     template <typename PRNG, typename THRUST_PRNG, typename CURAND_RND_STATES>
     void
-    run_epoch(CostMx const& costMx, PRNG& prng, THRUST_PRNG& thrustPrng, CURAND_RND_STATES& states,
+    run_epoch(CostMx const& costMx, PRNG& prng, THRUST_PRNG& thrustPrng,
+              CURAND_RND_STATES&                      states,
               std::vector<IndividualPtrsView<GeneT>>& individualsMx) {
         const std::ranges::iota_view islandIdxs(0u, params.nIslands);
+
+        // initialization of device memory
 
         // this loop could be parallel, if saving the best solution and
         // its fitness are thread-safe operations
         for (const auto islandIdx : islandIdxs) {
-            run_island(costMx, prng, thrustPrng, states, islandIdx, individualsMx[islandIdx]);
+            // gpu, results on host
+            run_island(costMx, prng, thrustPrng, states, islandIdx,
+                       individualsMx[islandIdx]);
             // at the end of run_island, population is bred, so
             // repairing and loss recalculation are necessary
 
+            // this does not step into if
             if constexpr (not is_noop_t<RepairOp>) {
                 PopulationMxView populationView(islands[islandIdx].data(),
                                                 params.populationSize,
@@ -96,13 +104,20 @@ struct IslandEvolutionaryAlgorithmGPU {
                 repair_population(populationView);
             }
 
+            // gpu
             grade_population(costMx, islandIdx, individualsMx[islandIdx]);
+            // gpu
             sort_population(islandIdx, individualsMx[islandIdx]);
 
+            // gpu -> host
             remember_best_solution(islandIdx, individualsMx[islandIdx]);
+            // calc on gpu -> host
             remember_stats(islandIdx);
         }
 
+        // TODO: data gpu -> host
+
+        // host
         migrationOp(individualsMx, lossMx, prng);
     }
 
@@ -185,7 +200,8 @@ private:
 
     template <typename PRNG, typename THRUST_PRNG, typename CURAND_RND_STATES>
     void
-    run_island(CostMx const& costMx, PRNG& prng, THRUST_PRNG& thrustPrng, CURAND_RND_STATES& states, const unsigned int islandIdx,
+    run_island(CostMx const& costMx, PRNG& prng, THRUST_PRNG& thrustPrng,
+               CURAND_RND_STATES& states, const unsigned int islandIdx,
                IndividualPtrsView<GeneT>& individualPtrsView) {
 
         auto&            population = islands[islandIdx];
@@ -201,23 +217,27 @@ private:
             sort_population(islandIdx, individualPtrsView);
             remember_best_solution(islandIdx, individualPtrsView);
             remember_stats(islandIdx);
-            breed_population(individualPtrsView, prng);
+            breed_population(individualPtrsView, states);
         }
     }
 
     template <typename THRUST_PRNG, typename CURAND_RND_STATES>
     void
-    mutate_population(PopulationMxView& population, THRUST_PRNG& prng, CURAND_RND_STATES& states) {
+    mutate_population(PopulationMxView& population, THRUST_PRNG& prng,
+                      CURAND_RND_STATES& states) {
         // to gpu
         thrust::device_vector<GeneT> gpuPopulation(population.size());
-        thrust::copy(population.data(), population.data() + population.size(), gpuPopulation.begin());
+        thrust::copy(population.data(), population.data() + population.size(),
+                     gpuPopulation.begin());
 
-        for (int i{0}; i < population.height(); ++i){
-            mutationOp(gpuPopulation.data() + i * population.width(), prng, states);
+        for (int i{0}; i < population.height(); ++i) {
+            mutationOp(gpuPopulation.data() + i * population.width(), prng,
+                       states);
         }
 
         // to host
-        thrust::copy(gpuPopulation.cbegin(), gpuPopulation.cend(), population.data());
+        thrust::copy(gpuPopulation.cbegin(), gpuPopulation.cend(),
+                     population.data());
     }
 
     /// for more advanced (but slow) repair procedure, cost matrix might be
@@ -226,18 +246,23 @@ private:
     repair_population(PopulationMxView& population) {
         if constexpr (is_noop_t<RepairOp>)
             return;
-        else
+        else {
+            errors::throwNotImplemented(__LINE__);
             for (auto row : population.rows())
                 repairOp(row.begin(), row.end());
+        }
     }
 
     void
     grade_population(CostMx const& costMx, const unsigned int islandIdx,
                      IndividualPtrsView<GeneT>& individualPtrs) {
         if constexpr (is_noop_t<Coder>)
+            // TODO: GPU
             lossFunPerIsland[islandIdx](individualPtrs, costMx,
                                         lossMx[islandIdx]);
         else {
+            errors::throwNotImplemented();
+
             // if solutions are encoded, loss function must get decoded version
             auto decoded = coder.decode_many(islands[islandIdx]);
             // ignore individualPtrs, recalculate them for decoded data
@@ -295,14 +320,10 @@ private:
     }
 
     /// Assumes that population size is even, if not, happy SEGFAULT day
-    template <typename PRNG>
+    template <typename RNG_STATES>
     void
-    breed_population(IndividualPtrsView<GeneT>& sortedParentPtrs, PRNG& prng) {
-        for (std::size_t i{0}; i < sortedParentPtrs.size(); i += 2) {
-            const auto p1Ptr(sortedParentPtrs[i]);
-            const auto p2Ptr(sortedParentPtrs[i + 1]);
-
-            crossoverOp(p1Ptr, p1Ptr + params.nGenes, p2Ptr, prng);
-        }
+    breed_population(IndividualPtrsView<GeneT>& sortedParentPtrs,
+                     RNG_STATES&                rngStates) {
+        crossoverOp(sortedParentPtrs, params.nGenes, rngStates);
     }
 };

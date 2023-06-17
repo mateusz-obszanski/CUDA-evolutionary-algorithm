@@ -9,4 +9,4 @@
 #   --std=c++20 -iquoteinclude -O0 -g -Wall -Wextra -Wpedantic $@
 
 # This works somehow
-nvcc dev.cxx -o dev-test --std=c++20 -O0 -g -G --include-path include
+nvcc dev.cxx -o ./build/dev-test --std=c++20 -O0 -g -G --include-path include

@@ -1,13 +1,13 @@
-prng_seed 5
-iterationsPerEpoch 69
+prng_seed 42
+iterationsPerEpoch 1024
 nEpochs 1000
-nEpochsWithoutImprovement 50
-nLocations 90
-minCost 1e-1
+nEpochsWithoutImprovement 1
+nLocations 32
+minCost 1e1
 maxCost 1e2
-islandPopulation 200
-nIslands 5
+islandPopulation 512
+nIslands 16
 # nGenes optional
-mutationChance 0.1
-migrationRatio 0.7
+mutationChance 0.05
+migrationRatio 0.08
 

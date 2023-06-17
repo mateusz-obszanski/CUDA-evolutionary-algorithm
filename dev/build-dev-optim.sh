@@ -2,5 +2,5 @@
 # clang++ dev.cxx -o dev \
 #   --std=c++20 -iquoteinclude -O3 -Wall -Wextra -Wpedantic $@
 
-nvcc dev.cxx -o dev --std=c++20 --include-path include -O3 
+nvcc dev.cxx -o ./build/dev --std=c++20 --include-path include -O3 
 

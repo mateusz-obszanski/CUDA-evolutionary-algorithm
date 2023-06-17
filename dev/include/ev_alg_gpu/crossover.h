@@ -44,8 +44,7 @@ is_not_quasinullopt(T x) noexcept {
 
 __device__ void
 scan_for_duplicates_gpu(const int begin, const int end, int* const parent1,
-                        const unsigned int nGenes, int* const child,
-                        auto& mapping) {
+                        int* const child, auto& mapping) {
 
     for (int i{begin}; i < end; ++i) {
         auto o    = mapping[parent1[i]];
@@ -65,8 +64,6 @@ scan_for_duplicates_gpu(const int begin, const int end, int* const parent1,
 __device__ void
 breed_gpu(int* const p1, int* const p2, const unsigned int nGenes, int x1,
           int x2, int* const child, int* const mapping) {
-
-    const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // initialize mapping with
     for (int i{0}; i < nGenes; ++i) {
@@ -88,9 +85,9 @@ breed_gpu(int* const p1, int* const p2, const unsigned int nGenes, int x1,
     }
 
     // left of the crossover zone
-    scan_for_duplicates_gpu(0, x1, p1, nGenes, child, mappingAdapter);
+    scan_for_duplicates_gpu(0, x1, p1, child, mappingAdapter);
     // right -||-
-    scan_for_duplicates_gpu(x2, nGenes, p1, nGenes, child, mappingAdapter);
+    scan_for_duplicates_gpu(x2, nGenes, p1, child, mappingAdapter);
 }
 
 /// returns int in range [min, max)
@@ -113,9 +110,8 @@ __device__ cuda::std::pair<int, int>
 
 template <typename CURAND_RNG_STATES>
 __global__ void
-gen_crosspoints_2(int* const x1s, int* const x2s,
-                  const unsigned int nCrossPointPairs,
-                  const unsigned int nGenes, CURAND_RNG_STATES* const states) {
+gen_crosspoints_2(int* x1s, int* x2s, const unsigned int nCrossPointPairs,
+                  const unsigned int nGenes, CURAND_RNG_STATES* states) {
     const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (tid >= nCrossPointPairs)
@@ -172,10 +168,8 @@ crossover_pmx_2p_kernel(int* const         population,
     const auto x1 = x1s[crossPointIdx];
     const auto x2 = x2s[crossPointIdx];
 
-    printf("x1: %i, x2: %i\n", x1, x2);
-
     // parents and child addresses have been properly swapped
-    breed_gpu(p1, p2, nGenes, 2, 4, child, mapping);
+    breed_gpu(p1, p2, nGenes, x1, x2, child, mapping);
 }
 
 struct CrossoverPMX2PointGPU {
@@ -185,7 +179,7 @@ struct CrossoverPMX2PointGPU {
     template <typename RNG_STATES>
     void
     operator()(std::span<SolutionPtr> population, const unsigned int nGenes,
-               RNG_STATES& rndStates) {
+               RNG_STATES& rngStates) {
 
         using device::kernel::utils::divCeil;
 
@@ -194,32 +188,26 @@ struct CrossoverPMX2PointGPU {
         const auto nIndividuals       = population.size();
         const auto nGenesInPopulation = nIndividuals * nGenes;
 
-        thrust::device_vector<GeneT> d_population(nGenesInPopulation);
-
         // 2 for each pair of individuals
         thrust::device_vector<int> crosspointBuff(nIndividuals);
 
-        const auto nCrossPoints = nIndividuals / 2;
+        const auto nCrossPointPairs = nIndividuals;
+        const auto nCrossPoints     = nCrossPointPairs / 2;
 
-        int* const x1s = thrust::raw_pointer_cast(crosspointBuff.data());
-        int* const x2s = x1s + nCrossPoints;
+        int* x1s = thrust::raw_pointer_cast(crosspointBuff.data());
+        int* x2s = x1s + nCrossPoints;
 
         const auto nBlocksCrossPoints =
             divCeil<unsigned int>(nCrossPoints, WARP_SIZE);
 
         gen_crosspoints_2<<<nBlocksCrossPoints, nCrossPoints>>>(
-            x1s, x2s, population.size(), nGenes, rndStates.data());
+            x1s, x2s, nCrossPointPairs, nGenes, rngStates.data());
 
-        // GPU needs continuous array, so copy from host pointer locations to
-        // device
-        for (std::size_t i{0}; i < nIndividuals; ++i) {
-            const auto solutionPtr = population[i];
-            thrust::copy(solutionPtr, solutionPtr + nGenes,
-                         &d_population[i * nGenes]);
-        }
-
+        thrust::device_vector<GeneT> d_population(nGenesInPopulation);
         thrust::device_vector<GeneT> childrenBuff(nGenesInPopulation);
         thrust::device_vector<GeneT> mappingBuffer(nGenesInPopulation);
+
+        population_to_device(population, d_population, nIndividuals, nGenes);
 
         const auto nBlocks = divCeil<unsigned int>(nIndividuals, WARP_SIZE);
 
@@ -228,25 +216,32 @@ struct CrossoverPMX2PointGPU {
             x2s, nGenes, thrust::raw_pointer_cast(childrenBuff.data()),
             thrust::raw_pointer_cast(mappingBuffer.data()));
 
-        cudaDeviceSynchronize();
         device::errors::check();
 
+        results_to_host(population, childrenBuff, nIndividuals, nGenes);
+    }
+
+    void
+    population_to_device(auto& population, auto& d_population,
+                         auto nIndividuals, auto nGenes) {
+        // GPU needs continuous array, so copy from host pointer locations to
+        // device
+        for (std::size_t i{0}; i < nIndividuals; ++i) {
+            const auto solutionPtr = population[i];
+            thrust::copy(solutionPtr, solutionPtr + nGenes,
+                         &d_population[i * nGenes]);
+        }
+    }
+
+    void
+    results_to_host(std::span<SolutionPtr> population, auto& childrenBuff,
+                    auto nIndividuals, auto nGenes) {
         // replace parents with offspring
         // for each pointer, overwrite its underlying memory
-        for (int i{0}; i < nIndividuals; ++i) {
+        for (std::size_t i{0}; i < nIndividuals; ++i) {
             auto solutionPtr = population[i];
             auto childPtr    = &childrenBuff[i * nGenes];
             thrust::copy(childPtr, childPtr + nGenes, solutionPtr);
-            device::errors::check();
-        }
-
-        for (int i{0}; i < nIndividuals; ++i) {
-            auto solutionPtr = population[i];
-            auto childPtr    = &childrenBuff[i * nGenes];
-            std::cout << "after GPU: [";
-            thrust::copy(childPtr, childPtr + nGenes,
-                         std::ostream_iterator<int>(std::cout, ", "));
-            std::cout << "]\n";
             device::errors::check();
         }
     }

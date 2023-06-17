@@ -1,12 +1,14 @@
 #include "ev_alg/crossover.hxx"
-#include "perf_measure.hxx"
-#include "ev_alg/migration.hxx"
-#include "ev_alg/stop_cond.hxx"
-#include "ev_alg/population_generation.hxx"
 #include "ev_alg/loss.hxx"
-#include "ev_alg_gpu/ev_alg_gpu.cuh"
-#include "ev_alg_gpu/mutation.cuh"
+#include "ev_alg/migration.hxx"
+#include "ev_alg/parameters.hxx"
+#include "ev_alg/population_generation.hxx"
+#include "ev_alg/stop_cond.hxx"
+#include "ev_alg_gpu/crossover.h"
+#include "ev_alg_gpu/ev_alg_gpu.h"
+#include "ev_alg_gpu/mutation.h"
 #include "iter_utils.hxx"
+#include "perf_measure.hxx"
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/random.h>
@@ -21,7 +23,8 @@ build_island_ev_alg_tsp_pmx_gpu(AllParams const& allParams) {
     RndPopulationGeneratorOTSP populationGenerator{allParams.islandPopulation,
                                                    allParams.nLocations};
     MutatorGPU mutator(allParams.nGenes, allParams.mutationChance);
-    CrossoverPMX2PointAdapter crossover{};
+    // CrossoverPMX2PointAdapter crossover{};
+    CrossoverPMX2PointGPU crossover{};
     LossFnClosed       lossFn(allParams.nLocations, allParams.islandPopulation);
     MigrationOp<GeneT> migrator(allParams.islandPopulation, allParams.nGenes,
                                 allParams.nMigrants);
@@ -63,7 +66,8 @@ run_ev_alg_tsp_from_file_cfg_gpu(
               << "Parameters:\n";
     allParams.print();
 
-    device::random::RndStateMemory<> states(allParams.nGenes * allParams.islandPopulation);
+    device::random::RndStateMemory<> states(allParams.nGenes *
+                                            allParams.islandPopulation);
     device::random::initialize_rnd_states(states);
     thrust::default_random_engine thrustPrng(allParams.prng_seed);
 
@@ -73,7 +77,7 @@ run_ev_alg_tsp_from_file_cfg_gpu(
     std::cout << "Starting algorithm\n";
 
     const auto tdelta =
-        measure_execution_time([&algo, &costMx, &prng, &thrustPrng, &states] { algo(costMx, prng, thrustPrng, states); });
+        measure_execution_time([&] { algo(costMx, prng, thrustPrng, states); });
 
     const auto coutFlags = std::cout.flags();
     std::cout << std::scientific;
@@ -114,7 +118,7 @@ main(const int argc, const char* const argv[]) {
             cfgFilePath = argv[1];
 
         if (argc < 3)
-            resultsDir = std::filesystem::current_path() / "results" /
+            resultsDir = std::filesystem::current_path() / "results-gpu" /
                          get_time_str("%d-%m-%Y_%H-%M-%S");
         else
             resultsDir = argv[2];

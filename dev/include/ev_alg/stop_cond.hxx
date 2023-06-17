@@ -9,14 +9,13 @@ constexpr auto INF = std::numeric_limits<float>::infinity();
 struct StopCondition {
     [[nodiscard]] StopCondition(
         unsigned int maxIters,
-        unsigned int maxItersWithoutImprovement = -1) noexcept
+        unsigned int maxItersWithoutImprovement =
+            std::numeric_limits<unsigned int>::max()) noexcept
     : bestLoss(INF),
       iteration(0),
       iterationSinceImprovement(0),
       maxIters(maxIters),
-      maxItersWithoutImprovement((maxItersWithoutImprovement <= 0)
-                                     ? maxIters
-                                     : maxItersWithoutImprovement),
+      maxItersWithoutImprovement(maxItersWithoutImprovement),
       stopReason(_StopReason::DID_NOT_STOP) {}
 
     [[nodiscard]] bool
@@ -54,7 +53,7 @@ struct StopCondition {
 
     [[nodiscard]] StopReason
     get_stop_reason() const {
-        if (stopReason == _StopReason::DID_NOT_STOP)
+        if (stopReason == _StopReason::DID_NOT_STOP) [[unlikely]]
             throw DidNotReachStopConditionError();
 
         return static_cast<StopReason>(stopReason);
