@@ -26,7 +26,7 @@ Przebieg działania algorytmu można obejrzeć w formie wykresu po uruchomieniu 
 
 Przykład:
 
-bash```
+```
 python3 ./read_data.py ./results-gpu --latest
 ```
 
